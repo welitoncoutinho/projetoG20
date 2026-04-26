@@ -368,6 +368,12 @@ th {
   background: var(--white);
 }
 
+.form-group input[readonly] {
+  background: var(--soft-surface);
+  color: var(--muted-text);
+  cursor: not-allowed;
+}
+
 .sale-layout {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -414,6 +420,19 @@ th {
   background: var(--blue);
   color: var(--white);
   border-color: var(--blue);
+}
+
+.stock-input {
+  width: 88px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+}
+
+.stock-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-soft);
 }
 
 .toast {

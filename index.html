@@ -12,7 +12,7 @@
       <div class="login-header">
         <div class="logo">G<span>20</span></div>
         <h1>Login por loja</h1>
-        <p>Informe o nome da loja e a senha para acessar estoque, vendas e relatórios separados.</p>
+        <p>Informe o nome da loja ou admin e a senha para acessar estoque, vendas e relatórios.</p>
       </div>
 
       <form class="login-card login-form" onsubmit="loginStore(event)">
@@ -23,6 +23,7 @@
           <option value="G20 Floramar"></option>
           <option value="G20 Guarani"></option>
           <option value="G20 1º de maio"></option>
+          <option value="admin"></option>
         </datalist>
 
         <label for="storePassword">Senha</label>
@@ -110,7 +111,7 @@
               </select>
             </div>
             <div class="form-group"><label>Marca</label><input placeholder="Ex: Baseus"></div>
-            <div class="form-group"><label>Modelo compatível</label><input placeholder="Ex: iPhone 14"></div>
+            <div class="form-group"><label>Fornecedor</label><input placeholder="Ex: Distribuidora G20"></div>
             <div class="form-group"><label>Preço de venda</label><input placeholder="R$ 49,90"></div>
             <div class="form-group"><label>Quantidade inicial</label><input type="number" placeholder="0"></div>
             <div class="form-group">
@@ -153,7 +154,7 @@
           <div class="section-header">
             <h2>Consulta de estoque</h2>
             <div class="actions">
-              <button class="btn green">Entrada de estoque</button>
+              <button id="saveStockButton" class="btn green" onclick="saveStockChanges()">Salvar estoque</button>
               <button class="btn orange">Transferir entre lojas</button>
             </div>
           </div>
@@ -171,10 +172,10 @@
               <tr><th>Produto</th><th data-store-stock="saoBernado">G20 São Bernado</th><th data-store-stock="floramar">G20 Floramar</th><th data-store-stock="guarani">G20 Guarani</th><th data-store-stock="primeiroDeMaio">G20 1º de maio</th><th data-store-stock="total">Total</th><th>Situação</th></tr>
             </thead>
             <tbody>
-              <tr><td>Capinha iPhone 14</td><td data-store-stock="saoBernado">12</td><td data-store-stock="floramar">10</td><td data-store-stock="guarani">8</td><td data-store-stock="primeiroDeMaio">12</td><td data-store-stock="total">42</td><td><span class="badge ok">Normal</span></td></tr>
-              <tr><td>Película Samsung A15</td><td data-store-stock="saoBernado">2</td><td data-store-stock="floramar">3</td><td data-store-stock="guarani">1</td><td data-store-stock="primeiroDeMaio">2</td><td data-store-stock="total">8</td><td><span class="badge low">Baixo</span></td></tr>
-              <tr><td>Cabo USB-C Turbo</td><td data-store-stock="saoBernado">20</td><td data-store-stock="floramar">16</td><td data-store-stock="guarani">18</td><td data-store-stock="primeiroDeMaio">22</td><td data-store-stock="total">76</td><td><span class="badge ok">Normal</span></td></tr>
-              <tr><td>Carregador 20W</td><td data-store-stock="saoBernado">5</td><td data-store-stock="floramar">7</td><td data-store-stock="guarani">3</td><td data-store-stock="primeiroDeMaio">2</td><td data-store-stock="total">17</td><td><span class="badge info">Atenção</span></td></tr>
+              <tr data-stock-row="capinha-iphone-14"><td>Capinha iPhone 14</td><td data-store-stock="saoBernado">12</td><td data-store-stock="floramar">10</td><td data-store-stock="guarani">8</td><td data-store-stock="primeiroDeMaio">12</td><td data-store-stock="total">42</td><td><span class="badge ok">Normal</span></td></tr>
+              <tr data-stock-row="pelicula-samsung-a15"><td>Película Samsung A15</td><td data-store-stock="saoBernado">2</td><td data-store-stock="floramar">3</td><td data-store-stock="guarani">1</td><td data-store-stock="primeiroDeMaio">2</td><td data-store-stock="total">8</td><td><span class="badge low">Baixo</span></td></tr>
+              <tr data-stock-row="cabo-usb-c-turbo"><td>Cabo USB-C Turbo</td><td data-store-stock="saoBernado">20</td><td data-store-stock="floramar">16</td><td data-store-stock="guarani">18</td><td data-store-stock="primeiroDeMaio">22</td><td data-store-stock="total">76</td><td><span class="badge ok">Normal</span></td></tr>
+              <tr data-stock-row="carregador-20w"><td>Carregador 20W</td><td data-store-stock="saoBernado">5</td><td data-store-stock="floramar">7</td><td data-store-stock="guarani">3</td><td data-store-stock="primeiroDeMaio">2</td><td data-store-stock="total">17</td><td><span class="badge info">Atenção</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -199,16 +200,21 @@
                 </select>
               </div>
               <div class="form-group">
+                <label>Vendedor</label>
+                <select id="saleSellerSelect"></select>
+              </div>
+              <div class="form-group">
                 <label>Produto</label>
-                <select>
+                <select id="saleProductSelect">
                   <option>Capinha iPhone 14</option>
                   <option>Película Samsung A15</option>
                   <option>Cabo USB-C Turbo</option>
+                  <option>Carregador 20W</option>
                 </select>
               </div>
-              <div class="form-group"><label>Quantidade</label><input type="number" value="1"></div>
-              <div class="form-group"><label>Valor unitário</label><input value="49,90"></div>
-              <div class="form-group"><label>Desconto</label><input value="0,00"></div>
+              <div class="form-group"><label>Quantidade</label><input id="saleQuantityInput" type="number" min="1" value="1"></div>
+              <div class="form-group"><label>Valor unitário</label><input id="saleUnitPriceInput" value="R$ 49,90" readonly></div>
+              <div class="form-group"><label>Desconto</label><input id="saleDiscountInput" value="0,00"></div>
               <div class="form-group">
                 <label>Forma de pagamento</label>
                 <select>
@@ -226,8 +232,7 @@
             <table>
               <thead><tr><th>Produto</th><th>Qtd</th><th>Valor</th><th>Subtotal</th></tr></thead>
               <tbody>
-                <tr><td>Capinha iPhone 14</td><td>1</td><td>R$ 49,90</td><td>R$ 49,90</td></tr>
-                <tr><td>Película Samsung A15</td><td>1</td><td>R$ 29,90</td><td>R$ 29,90</td></tr>
+                <tr><td id="salePreviewProduct">Capinha iPhone 14</td><td id="salePreviewQuantity">1</td><td id="salePreviewPrice">R$ 49,90</td><td id="salePreviewSubtotal">R$ 49,90</td></tr>
               </tbody>
             </table>
           </div>
@@ -236,11 +241,12 @@
             <h2>Resumo da venda</h2>
             <br>
             <div class="summary-box">
-              <div class="summary-line"><span>Itens</span><strong>2</strong></div>
-              <div class="summary-line"><span>Subtotal</span><strong>R$ 79,80</strong></div>
-              <div class="summary-line"><span>Desconto</span><strong>R$ 0,00</strong></div>
+              <div class="summary-line"><span>Itens</span><strong id="saleSummaryItems">1</strong></div>
+              <div class="summary-line"><span>Subtotal</span><strong id="saleSummarySubtotal">R$ 49,90</strong></div>
+              <div class="summary-line"><span>Desconto</span><strong id="saleSummaryDiscount">R$ 0,00</strong></div>
               <div class="summary-line"><span>Pagamento</span><strong>Pix</strong></div>
-              <div class="summary-line summary-total"><span>Total</span><span>R$ 79,80</span></div>
+              <div class="summary-line"><span>Vendedor</span><strong id="saleSummarySeller">-</strong></div>
+              <div class="summary-line summary-total"><span>Total</span><span id="saleSummaryTotal">R$ 49,90</span></div>
             </div>
           </div>
         </div>
@@ -267,6 +273,17 @@
               <tr><td>Estoque baixo</td><td>Lista produtos abaixo do estoque mínimo da loja.</td><td><button class="btn secondary">Visualizar</button></td></tr>
               <tr><td>Formas de pagamento</td><td>Resumo de vendas por Pix, dinheiro e cartão.</td><td><button class="btn secondary">Visualizar</button></td></tr>
             </tbody>
+          </table>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2>Vendas por vendedor</h2>
+          </div>
+
+          <table>
+            <thead><tr><th>Vendedor</th><th>Quantidade de vendas</th><th>Faturamento</th><th>Ticket médio</th><th>Destaque</th></tr></thead>
+            <tbody id="sellerReportBody"></tbody>
           </table>
         </div>
       </section>
