@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Estoque - Acessórios de Celular</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <section id="loginScreen" class="login-screen">
+    <div class="login-panel">
+      <div class="login-header">
+        <div class="logo">G<span>20</span></div>
+        <h1>Login por loja</h1>
+        <p>Informe o nome da loja e a senha para acessar estoque, vendas e relatórios separados.</p>
+      </div>
+
+      <form class="login-card login-form" onsubmit="loginStore(event)">
+        <label for="storeName">Nome da loja</label>
+        <input id="storeName" type="text" list="storeOptions" placeholder="Ex: G20 Floramar" autocomplete="organization" required>
+        <datalist id="storeOptions">
+          <option value="G20 São Bernado"></option>
+          <option value="G20 Floramar"></option>
+          <option value="G20 Guarani"></option>
+          <option value="G20 1º de maio"></option>
+        </datalist>
+
+        <label for="storePassword">Senha</label>
+        <input id="storePassword" type="password" placeholder="Senha" autocomplete="current-password" required>
+
+        <button class="btn" type="submit">Entrar</button>
+      </form>
+    </div>
+  </section>
+
+  <div id="appShell" class="app hidden">
+    <aside class="sidebar">
+      <div class="logo">G<span>20</span></div>
+      <div id="currentStore" class="current-store">Loja não selecionada</div>
+
+      <nav class="menu">
+        <button class="active" onclick="showPage('dashboard', this)">Dashboard</button>
+        <button onclick="showPage('produtos', this)">Produtos</button>
+        <button onclick="showPage('estoque', this)">Estoque</button>
+        <button onclick="showPage('vendas', this)">Nova Venda</button>
+        <button onclick="showPage('relatorios', this)">Relatórios</button>
+      </nav>
+
+      <button class="logout-btn" onclick="logoutStore()">Sair da loja</button>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h1 id="pageTitle">Dashboard</h1>
+        <div id="userBox" class="user-box">Loja não selecionada</div>
+      </header>
+
+      <section id="dashboard" class="page active">
+        <div class="cards">
+          <div class="card blue"><small>Produtos cadastrados</small><strong id="dashboardProducts">0</strong></div>
+          <div class="card green"><small>Estoque total</small><strong id="dashboardStock">0</strong></div>
+          <div class="card orange"><small>Vendas hoje</small><strong id="dashboardSales">R$ 0,00</strong></div>
+          <div class="card red"><small>Produtos em baixa</small><strong id="dashboardLow">0</strong></div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2 id="dashboardSummaryTitle">Resumo da loja</h2>
+            <button class="btn secondary">Exportar relatório</button>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Loja</th>
+                <th>Produtos em estoque</th>
+                <th>Vendas hoje</th>
+                <th>Faturamento</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-store-row="saoBernado"><td>G20 São Bernado</td><td>1.120</td><td>32</td><td>R$ 980,00</td><td><span class="badge ok">Operando</span></td></tr>
+              <tr data-store-row="floramar"><td>G20 Floramar</td><td>984</td><td>41</td><td>R$ 1.230,00</td><td><span class="badge ok">Operando</span></td></tr>
+              <tr data-store-row="guarani"><td>G20 Guarani</td><td>860</td><td>18</td><td>R$ 420,00</td><td><span class="badge ok">Operando</span></td></tr>
+              <tr data-store-row="primeiroDeMaio"><td>G20 1º de maio</td><td>878</td><td>25</td><td>R$ 650,00</td><td><span class="badge ok">Operando</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="produtos" class="page">
+        <div class="section">
+          <div class="section-header">
+            <h2>Cadastro de produto</h2>
+            <button class="btn green" onclick="showMessage('Produto cadastrado no protótipo!')">Salvar produto</button>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group"><label>SKU/Código</label><input placeholder="Ex: CAP-IP14-001"></div>
+            <div class="form-group"><label>Nome do produto</label><input placeholder="Ex: Capinha iPhone 14"></div>
+            <div class="form-group">
+              <label>Tipo</label>
+              <select>
+                <option>Capinha</option>
+                <option>Película</option>
+                <option>Carregador</option>
+                <option>Cabo</option>
+                <option>Fone</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Marca</label><input placeholder="Ex: Baseus"></div>
+            <div class="form-group"><label>Modelo compatível</label><input placeholder="Ex: iPhone 14"></div>
+            <div class="form-group"><label>Preço de venda</label><input placeholder="R$ 49,90"></div>
+            <div class="form-group"><label>Quantidade inicial</label><input type="number" placeholder="0"></div>
+            <div class="form-group">
+              <label>Loja inicial</label>
+              <select id="initialStoreSelect">
+                <option>G20 São Bernado</option>
+                <option>G20 Floramar</option>
+                <option>G20 Guarani</option>
+                <option>G20 1º de maio</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Estoque mínimo</label><input type="number" placeholder="5"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2>Produtos cadastrados</h2>
+            <div class="actions">
+              <button class="btn secondary">Filtrar</button>
+              <button class="btn secondary">Importar planilha</button>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr><th>SKU</th><th>Produto</th><th>Tipo</th><th>Preço</th><th>Total estoque</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>CAP-IP14-001</td><td>Capinha iPhone 14 Transparente</td><td>Capinha</td><td>R$ 49,90</td><td>42</td><td><span class="badge ok">Ativo</span></td></tr>
+              <tr><td>PEL-SAM-A15</td><td>Película Samsung A15</td><td>Película</td><td>R$ 29,90</td><td>8</td><td><span class="badge low">Estoque baixo</span></td></tr>
+              <tr><td>CAB-TYPEC-02</td><td>Cabo USB-C Turbo</td><td>Cabo</td><td>R$ 39,90</td><td>76</td><td><span class="badge ok">Ativo</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="estoque" class="page">
+        <div class="section">
+          <div class="section-header">
+            <h2>Consulta de estoque</h2>
+            <div class="actions">
+              <button class="btn green">Entrada de estoque</button>
+              <button class="btn orange">Transferir entre lojas</button>
+            </div>
+          </div>
+
+          <div class="store-filter">
+            <button data-store-filter="all" class="active">Todas</button>
+            <button data-store-filter="saoBernado">G20 São Bernado</button>
+            <button data-store-filter="floramar">G20 Floramar</button>
+            <button data-store-filter="guarani">G20 Guarani</button>
+            <button data-store-filter="primeiroDeMaio">G20 1º de maio</button>
+          </div>
+
+          <table>
+            <thead>
+              <tr><th>Produto</th><th data-store-stock="saoBernado">G20 São Bernado</th><th data-store-stock="floramar">G20 Floramar</th><th data-store-stock="guarani">G20 Guarani</th><th data-store-stock="primeiroDeMaio">G20 1º de maio</th><th data-store-stock="total">Total</th><th>Situação</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Capinha iPhone 14</td><td data-store-stock="saoBernado">12</td><td data-store-stock="floramar">10</td><td data-store-stock="guarani">8</td><td data-store-stock="primeiroDeMaio">12</td><td data-store-stock="total">42</td><td><span class="badge ok">Normal</span></td></tr>
+              <tr><td>Película Samsung A15</td><td data-store-stock="saoBernado">2</td><td data-store-stock="floramar">3</td><td data-store-stock="guarani">1</td><td data-store-stock="primeiroDeMaio">2</td><td data-store-stock="total">8</td><td><span class="badge low">Baixo</span></td></tr>
+              <tr><td>Cabo USB-C Turbo</td><td data-store-stock="saoBernado">20</td><td data-store-stock="floramar">16</td><td data-store-stock="guarani">18</td><td data-store-stock="primeiroDeMaio">22</td><td data-store-stock="total">76</td><td><span class="badge ok">Normal</span></td></tr>
+              <tr><td>Carregador 20W</td><td data-store-stock="saoBernado">5</td><td data-store-stock="floramar">7</td><td data-store-stock="guarani">3</td><td data-store-stock="primeiroDeMaio">2</td><td data-store-stock="total">17</td><td><span class="badge info">Atenção</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="vendas" class="page">
+        <div class="sale-layout">
+          <div class="section">
+            <div class="section-header">
+              <h2>Nova venda</h2>
+              <button class="btn green" onclick="showMessage('Venda finalizada e estoque baixado no protótipo!')">Finalizar venda</button>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Loja da venda</label>
+                <select id="saleStoreSelect">
+                  <option>G20 São Bernado</option>
+                  <option>G20 Floramar</option>
+                  <option>G20 Guarani</option>
+                  <option>G20 1º de maio</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Produto</label>
+                <select>
+                  <option>Capinha iPhone 14</option>
+                  <option>Película Samsung A15</option>
+                  <option>Cabo USB-C Turbo</option>
+                </select>
+              </div>
+              <div class="form-group"><label>Quantidade</label><input type="number" value="1"></div>
+              <div class="form-group"><label>Valor unitário</label><input value="49,90"></div>
+              <div class="form-group"><label>Desconto</label><input value="0,00"></div>
+              <div class="form-group">
+                <label>Forma de pagamento</label>
+                <select>
+                  <option>Pix</option>
+                  <option>Dinheiro</option>
+                  <option>Cartão de crédito</option>
+                  <option>Cartão de débito</option>
+                  <option>Pagamento misto</option>
+                </select>
+              </div>
+            </div>
+
+            <br>
+
+            <table>
+              <thead><tr><th>Produto</th><th>Qtd</th><th>Valor</th><th>Subtotal</th></tr></thead>
+              <tbody>
+                <tr><td>Capinha iPhone 14</td><td>1</td><td>R$ 49,90</td><td>R$ 49,90</td></tr>
+                <tr><td>Película Samsung A15</td><td>1</td><td>R$ 29,90</td><td>R$ 29,90</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <h2>Resumo da venda</h2>
+            <br>
+            <div class="summary-box">
+              <div class="summary-line"><span>Itens</span><strong>2</strong></div>
+              <div class="summary-line"><span>Subtotal</span><strong>R$ 79,80</strong></div>
+              <div class="summary-line"><span>Desconto</span><strong>R$ 0,00</strong></div>
+              <div class="summary-line"><span>Pagamento</span><strong>Pix</strong></div>
+              <div class="summary-line summary-total"><span>Total</span><span>R$ 79,80</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="relatorios" class="page">
+        <div class="cards">
+          <div class="card blue"><small>Faturamento mensal</small><strong id="reportRevenue">R$ 0</strong></div>
+          <div class="card green"><small>Produto mais vendido</small><strong>Película</strong></div>
+          <div class="card orange"><small>Forma mais usada</small><strong>Pix</strong></div>
+          <div class="card red"><small>Alertas de estoque</small><strong id="reportLowStock">0</strong></div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2 id="reportsTitle">Relatórios disponíveis</h2>
+          </div>
+
+          <table>
+            <thead><tr><th>Relatório</th><th>Descrição</th><th>Ação</th></tr></thead>
+            <tbody>
+              <tr><td>Vendas da loja</td><td>Mostra faturamento e volume vendido da unidade selecionada.</td><td><button class="btn secondary">Visualizar</button></td></tr>
+              <tr><td>Produtos mais vendidos</td><td>Mostra os acessórios com maior saída na loja.</td><td><button class="btn secondary">Visualizar</button></td></tr>
+              <tr><td>Estoque baixo</td><td>Lista produtos abaixo do estoque mínimo da loja.</td><td><button class="btn secondary">Visualizar</button></td></tr>
+              <tr><td>Formas de pagamento</td><td>Resumo de vendas por Pix, dinheiro e cartão.</td><td><button class="btn secondary">Visualizar</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
