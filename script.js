@@ -2,7 +2,7 @@ const titles = {
   dashboard: "Dashboard",
   produtos: "Produtos",
   estoque: "Estoque",
-  vendas: "Nova Venda",
+  vendas: "Vendas",
   relatorios: "Relatórios"
 };
 
@@ -79,6 +79,8 @@ const stores = {
 let activeStoreKey = null;
 let activeRole = null;
 let stockData = {};
+let selectedSaleProducts = [];
+let saleProductQuantities = {};
 let toastTimer;
 
 function loginStore(event) {
@@ -463,31 +465,256 @@ function updateSaleSummarySeller() {
 
 function updateSalePrice() {
   const productSelect = document.getElementById("saleProductSelect");
-  const quantityInput = document.getElementById("saleQuantityInput");
-  const priceInput = document.getElementById("saleUnitPriceInput");
   const discountInput = document.getElementById("saleDiscountInput");
 
-  if (!productSelect || !quantityInput || !priceInput || !discountInput) {
+  if (!productSelect || !discountInput) {
     return;
   }
 
-  const productName = productSelect.value;
-  const unitPrice = productPrices[productName] || 0;
-  const quantity = Math.max(1, Number(quantityInput.value || 1));
+  const productNames = getSelectedSaleProducts();
+  const itemCount = productNames.reduce((sum, productName) => sum + getSaleProductQuantity(productName), 0);
+  const subtotal = productNames.reduce((sum, productName) => {
+    return sum + (productPrices[productName] || 0) * getSaleProductQuantity(productName);
+  }, 0);
   const discount = Math.max(0, parseBrazilianMoney(discountInput.value));
-  const subtotal = unitPrice * quantity;
   const total = Math.max(0, subtotal - discount);
 
-  quantityInput.value = quantity;
-  priceInput.value = formatCurrency(unitPrice);
-  setText("salePreviewProduct", productName);
-  setText("salePreviewQuantity", quantity);
-  setText("salePreviewPrice", formatCurrency(unitPrice));
-  setText("salePreviewSubtotal", formatCurrency(subtotal));
-  setText("saleSummaryItems", quantity);
+  setText("saleSummaryItems", itemCount);
+  setText("saleSummaryProducts", productNames.length ? productNames.join(", ") : "-");
   setText("saleSummarySubtotal", formatCurrency(subtotal));
   setText("saleSummaryDiscount", formatCurrency(discount));
   setText("saleSummaryTotal", formatCurrency(total));
+  updatePaymentSummary();
+}
+
+function populateSaleProductSearch() {
+  renderSaleProductResults("");
+}
+
+function getSelectedSaleProducts() {
+  return selectedSaleProducts.length ? selectedSaleProducts : [];
+}
+
+function getSaleProductQuantity(productName) {
+  return Math.max(1, Number(saleProductQuantities[productName] || 1));
+}
+
+function renderSaleProductResults(searchTerm) {
+  const results = document.getElementById("saleProductResults");
+
+  if (!results) {
+    return;
+  }
+
+  const normalizedSearch = normalizeText(searchTerm);
+  const products = getStockProductNames().filter((productName) => {
+    return !normalizedSearch || normalizeText(productName).includes(normalizedSearch);
+  });
+
+  results.innerHTML = "";
+
+  if (!searchTerm.trim() || products.length === 0) {
+    results.classList.add("hidden");
+    return;
+  }
+
+  products.forEach((productName) => {
+    const item = document.createElement("label");
+    item.className = "product-search-option";
+    const isSelected = selectedSaleProducts.includes(productName);
+    item.innerHTML = `
+      <input type="checkbox" value="${productName}" ${isSelected ? "checked" : ""}>
+      <span>${productName}</span>
+      <input class="product-quantity-input" type="number" min="1" placeholder="Qtd" value="${isSelected ? getSaleProductQuantity(productName) : ""}" data-product-quantity="${productName}" ${isSelected ? "" : "disabled"}>
+      <small>Estoque: ${getProductTotalStock(productName)} | ${formatCurrency(productPrices[productName] || 0)}</small>
+    `;
+    results.appendChild(item);
+  });
+
+  results.classList.remove("hidden");
+}
+
+function toggleSaleProduct(productName, checked) {
+  if (checked && !selectedSaleProducts.includes(productName)) {
+    selectedSaleProducts.push(productName);
+    saleProductQuantities[productName] = getSaleProductQuantity(productName);
+  }
+
+  if (!checked) {
+    selectedSaleProducts = selectedSaleProducts.filter((selectedProduct) => selectedProduct !== productName);
+  }
+}
+
+function updateSaleProductQuantity(productName, quantity) {
+  saleProductQuantities[productName] = Math.max(1, Number(quantity || 1));
+}
+
+function getStockProductNames() {
+  return Array.from(document.querySelectorAll("[data-stock-row] td:first-child")).map((cell) => {
+    return cell.textContent.trim();
+  });
+}
+
+function getProductTotalStock(productName) {
+  const row = Array.from(document.querySelectorAll("[data-stock-row]")).find((stockRow) => {
+    const nameCell = stockRow.querySelector("td:first-child");
+    return nameCell && nameCell.textContent.trim() === productName;
+  });
+
+  if (!row) {
+    return 0;
+  }
+
+  return getStoreKeys().reduce((total, storeKey) => {
+    return total + Number(stockData[row.dataset.stockRow]?.[storeKey] || 0);
+  }, 0);
+}
+
+function updatePaymentSummary() {
+  const paymentSelect = document.getElementById("salePaymentSelect");
+  const installmentsGroup = document.getElementById("saleInstallmentsGroup");
+  const installmentsSelect = document.getElementById("saleInstallmentsSelect");
+  const mixedPaymentGroup = document.getElementById("mixedPaymentGroup");
+
+  if (!paymentSelect || !installmentsGroup || !installmentsSelect || !mixedPaymentGroup) {
+    return;
+  }
+
+  const paymentMethod = paymentSelect.value;
+  const normalizedPayment = normalizeText(paymentMethod);
+  const isCredit = normalizedPayment === "cartao de credito";
+  const isMixed = normalizedPayment === "pagamento misto";
+
+  installmentsGroup.classList.toggle("hidden", !isCredit);
+  mixedPaymentGroup.classList.toggle("hidden", !isMixed);
+
+  if (!isCredit) {
+    installmentsSelect.value = "1";
+  }
+
+  const installmentText = installmentsSelect.value === "1" ? "À vista" : `${installmentsSelect.value}x`;
+
+  setText("saleSummaryPayment", paymentMethod);
+  setText("saleSummaryInstallments", installmentText);
+  setText("saleSummaryMixedPayment", isMixed ? getMixedPaymentSummary() : "-");
+}
+
+function getMixedPaymentSummary() {
+  const methodFields = document.querySelectorAll(".mixed-payment-method");
+  const valueFields = document.querySelectorAll(".mixed-payment-value");
+  const payments = [];
+
+  valueFields.forEach((valueField, index) => {
+    const value = parseBrazilianMoney(valueField.value);
+
+    if (value > 0) {
+      payments.push(`${methodFields[index].value}: ${formatCurrency(value)}`);
+    }
+  });
+
+  return payments.length ? payments.join(" | ") : "Informe os valores";
+}
+
+function finalizeSale() {
+  const salesTableBody = document.getElementById("salesTableBody");
+  const customerInput = document.getElementById("saleCustomerInput");
+
+  if (!salesTableBody) {
+    return;
+  }
+
+  if (selectedSaleProducts.length === 0) {
+    showMessage("Selecione pelo menos um produto para finalizar a venda.");
+    return;
+  }
+
+  const row = document.createElement("tr");
+  const values = [
+    new Date().toLocaleDateString("pt-BR"),
+    customerInput?.value.trim() || "Cliente não informado",
+    getSaleProductsText(),
+    document.getElementById("saleSellerSelect")?.value || "-",
+    getSalePaymentText(),
+    document.getElementById("saleSummaryTotal")?.textContent || "R$ 0,00"
+  ];
+
+  values.forEach((value) => {
+    const cell = document.createElement("td");
+    cell.textContent = value;
+    row.appendChild(cell);
+  });
+
+  const actionCell = document.createElement("td");
+  const editButton = document.createElement("button");
+  editButton.className = "btn secondary";
+  editButton.textContent = "Editar";
+  editButton.addEventListener("click", () => showMessage("Edição da venda aberta no protótipo!"));
+  actionCell.appendChild(editButton);
+  row.appendChild(actionCell);
+
+  salesTableBody.prepend(row);
+  resetSaleForm();
+  showMessage("Venda finalizada e adicionada em vendas realizadas.");
+}
+
+function getSaleProductsText() {
+  return selectedSaleProducts.map((productName) => {
+    return `${getSaleProductQuantity(productName)}x ${productName}`;
+  }).join(", ");
+}
+
+function getSalePaymentText() {
+  const payment = document.getElementById("saleSummaryPayment")?.textContent || "-";
+  const installments = document.getElementById("saleSummaryInstallments")?.textContent || "À vista";
+  const mixed = document.getElementById("saleSummaryMixedPayment")?.textContent || "-";
+
+  if (normalizeText(payment) === "pagamento misto") {
+    return mixed !== "-" ? `Pagamento misto - ${mixed}` : "Pagamento misto";
+  }
+
+  if (normalizeText(payment) === "cartao de credito" && installments !== "À vista") {
+    return `${payment} - ${installments}`;
+  }
+
+  return payment;
+}
+
+function resetSaleForm() {
+  const customerInput = document.getElementById("saleCustomerInput");
+  const productInput = document.getElementById("saleProductSelect");
+  const discountInput = document.getElementById("saleDiscountInput");
+  const paymentSelect = document.getElementById("salePaymentSelect");
+  const results = document.getElementById("saleProductResults");
+
+  selectedSaleProducts = [];
+  saleProductQuantities = {};
+
+  if (customerInput) {
+    customerInput.value = "";
+  }
+
+  if (productInput) {
+    productInput.value = "";
+  }
+
+  if (discountInput) {
+    discountInput.value = "";
+  }
+
+  if (paymentSelect) {
+    paymentSelect.value = "Pix";
+  }
+
+  document.querySelectorAll(".mixed-payment-value").forEach((input) => {
+    input.value = "";
+  });
+
+  if (results) {
+    results.classList.add("hidden");
+    results.innerHTML = "";
+  }
+
+  updateSalePrice();
 }
 
 function renderSellerReport(sellers) {
@@ -549,14 +776,51 @@ document.addEventListener("input", (event) => {
     updateStockRowTotal(event.target.closest("[data-stock-row]"));
   }
 
-  if (event.target.matches("#saleQuantityInput, #saleDiscountInput")) {
+  if (event.target.matches("#saleProductSelect")) {
+    renderSaleProductResults(event.target.value);
     updateSalePrice();
+  }
+
+  if (event.target.matches("#saleDiscountInput")) {
+    updateSalePrice();
+  }
+
+  if (event.target.matches("[data-product-quantity]")) {
+    updateSaleProductQuantity(event.target.dataset.productQuantity, event.target.value);
+    updateSalePrice();
+  }
+
+  if (event.target.matches(".mixed-payment-value")) {
+    updatePaymentSummary();
   }
 });
 
 document.addEventListener("change", (event) => {
-  if (event.target.matches("#saleProductSelect")) {
+  if (event.target.matches("#saleProductResults input[type='checkbox']")) {
+    toggleSaleProduct(event.target.value, event.target.checked);
+    const quantityInput = event.target.closest(".product-search-option").querySelector("[data-product-quantity]");
+
+    if (quantityInput) {
+      quantityInput.disabled = !event.target.checked;
+
+      if (event.target.checked && !quantityInput.value) {
+        quantityInput.value = getSaleProductQuantity(event.target.value);
+      }
+    }
+
     updateSalePrice();
+  }
+
+  if (event.target.matches("#salePaymentSelect, #saleInstallmentsSelect, .mixed-payment-method")) {
+    updatePaymentSummary();
+  }
+});
+
+document.addEventListener("click", (event) => {
+  const results = document.getElementById("saleProductResults");
+
+  if (results && !event.target.closest("#saleProductResults") && !event.target.matches("#saleProductSelect")) {
+    results.classList.add("hidden");
   }
 });
 
@@ -567,4 +831,5 @@ if (saleSellerSelect) {
 }
 
 stockData = loadStockData();
+populateSaleProductSearch();
 updateSalePrice();

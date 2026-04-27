@@ -43,7 +43,7 @@
         <button class="active" onclick="showPage('dashboard', this)">Dashboard</button>
         <button onclick="showPage('produtos', this)">Produtos</button>
         <button onclick="showPage('estoque', this)">Estoque</button>
-        <button onclick="showPage('vendas', this)">Nova Venda</button>
+        <button onclick="showPage('vendas', this)">Vendas</button>
         <button onclick="showPage('relatorios', this)">Relatórios</button>
       </nav>
 
@@ -186,7 +186,7 @@
           <div class="section">
             <div class="section-header">
               <h2>Nova venda</h2>
-              <button class="btn green" onclick="showMessage('Venda finalizada e estoque baixado no protótipo!')">Finalizar venda</button>
+              <button class="btn green" onclick="finalizeSale()">Finalizar venda</button>
             </div>
 
             <div class="form-grid">
@@ -203,21 +203,15 @@
                 <label>Vendedor</label>
                 <select id="saleSellerSelect"></select>
               </div>
+              <div class="form-group"><label>Cliente</label><input id="saleCustomerInput" placeholder="Nome do cliente"></div>
               <div class="form-group">
-                <label>Produto</label>
-                <select id="saleProductSelect">
-                  <option>Capinha iPhone 14</option>
-                  <option>Película Samsung A15</option>
-                  <option>Cabo USB-C Turbo</option>
-                  <option>Carregador 20W</option>
-                </select>
+                <label>Pesquisar produto</label>
+                <input id="saleProductSelect" placeholder="Digite para buscar no estoque" autocomplete="off">
               </div>
-              <div class="form-group"><label>Quantidade</label><input id="saleQuantityInput" type="number" min="1" value="1"></div>
-              <div class="form-group"><label>Valor unitário</label><input id="saleUnitPriceInput" value="R$ 49,90" readonly></div>
-              <div class="form-group"><label>Desconto</label><input id="saleDiscountInput" value="0,00"></div>
+              <div class="form-group"><label>Desconto</label><input id="saleDiscountInput" placeholder="0,00"></div>
               <div class="form-group">
                 <label>Forma de pagamento</label>
-                <select>
+                <select id="salePaymentSelect">
                   <option>Pix</option>
                   <option>Dinheiro</option>
                   <option>Cartão de crédito</option>
@@ -225,30 +219,142 @@
                   <option>Pagamento misto</option>
                 </select>
               </div>
+              <div id="saleInstallmentsGroup" class="form-group hidden">
+                <label>Quantidade de parcelas</label>
+                <select id="saleInstallmentsSelect">
+                  <option value="1">À vista</option>
+                  <option value="2">2x</option>
+                  <option value="3">3x</option>
+                  <option value="4">4x</option>
+                  <option value="5">5x</option>
+                  <option value="6">6x</option>
+                  <option value="7">7x</option>
+                  <option value="8">8x</option>
+                  <option value="9">9x</option>
+                  <option value="10">10x</option>
+                </select>
+              </div>
+              <div id="mixedPaymentGroup" class="mixed-payment-group hidden">
+                <div class="form-group">
+                  <label>Forma 1</label>
+                  <select class="mixed-payment-method">
+                    <option>Pix</option>
+                    <option>Dinheiro</option>
+                    <option>Cartão de crédito</option>
+                    <option>Cartão de débito</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Valor 1</label><input class="mixed-payment-value" placeholder="0,00"></div>
+                <div class="form-group">
+                  <label>Forma 2</label>
+                  <select class="mixed-payment-method">
+                    <option>Dinheiro</option>
+                    <option>Pix</option>
+                    <option>Cartão de crédito</option>
+                    <option>Cartão de débito</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Valor 2</label><input class="mixed-payment-value" placeholder="0,00"></div>
+                <div class="form-group">
+                  <label>Forma 3</label>
+                  <select class="mixed-payment-method">
+                    <option>Cartão de crédito</option>
+                    <option>Pix</option>
+                    <option>Dinheiro</option>
+                    <option>Cartão de débito</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Valor 3</label><input class="mixed-payment-value" placeholder="0,00"></div>
+                <div class="form-group">
+                  <label>Forma 4</label>
+                  <select class="mixed-payment-method">
+                    <option>Cartão de débito</option>
+                    <option>Pix</option>
+                    <option>Dinheiro</option>
+                    <option>Cartão de crédito</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>Valor 4</label><input class="mixed-payment-value" placeholder="0,00"></div>
+              </div>
             </div>
+            <div id="saleProductResults" class="product-search-results hidden"></div>
 
-            <br>
-
-            <table>
-              <thead><tr><th>Produto</th><th>Qtd</th><th>Valor</th><th>Subtotal</th></tr></thead>
-              <tbody>
-                <tr><td id="salePreviewProduct">Capinha iPhone 14</td><td id="salePreviewQuantity">1</td><td id="salePreviewPrice">R$ 49,90</td><td id="salePreviewSubtotal">R$ 49,90</td></tr>
-              </tbody>
-            </table>
           </div>
 
           <div class="section">
             <h2>Resumo da venda</h2>
             <br>
             <div class="summary-box">
-              <div class="summary-line"><span>Itens</span><strong id="saleSummaryItems">1</strong></div>
-              <div class="summary-line"><span>Subtotal</span><strong id="saleSummarySubtotal">R$ 49,90</strong></div>
+              <div class="summary-line"><span>Itens</span><strong id="saleSummaryItems">0</strong></div>
+              <div class="summary-line"><span>Produtos</span><strong id="saleSummaryProducts">-</strong></div>
+              <div class="summary-line"><span>Subtotal</span><strong id="saleSummarySubtotal">R$ 0,00</strong></div>
               <div class="summary-line"><span>Desconto</span><strong id="saleSummaryDiscount">R$ 0,00</strong></div>
-              <div class="summary-line"><span>Pagamento</span><strong>Pix</strong></div>
+              <div class="summary-line"><span>Pagamento</span><strong id="saleSummaryPayment">Pix</strong></div>
+              <div class="summary-line"><span>Parcelas</span><strong id="saleSummaryInstallments">À vista</strong></div>
+              <div class="summary-line"><span>Pagamento misto</span><strong id="saleSummaryMixedPayment">-</strong></div>
               <div class="summary-line"><span>Vendedor</span><strong id="saleSummarySeller">-</strong></div>
-              <div class="summary-line summary-total"><span>Total</span><span id="saleSummaryTotal">R$ 49,90</span></div>
+              <div class="summary-line summary-total"><span>Total</span><span id="saleSummaryTotal">R$ 0,00</span></div>
             </div>
           </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2>Vendas realizadas</h2>
+            <button class="btn secondary">Filtrar vendas</button>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Cliente</th>
+                <th>Produtos</th>
+                <th>Vendedor</th>
+                <th>Pagamento</th>
+                <th>Total</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="salesTableBody">
+              <tr>
+                <td>26/04/2026</td>
+                <td>Marcos Vinicius</td>
+                <td>Capinha iPhone 14, Película Samsung A15</td>
+                <td>Ana Paula</td>
+                <td>Pix</td>
+                <td>R$ 79,80</td>
+                <td><button class="btn secondary" onclick="showMessage('Edição da venda aberta no protótipo!')">Editar</button></td>
+              </tr>
+              <tr>
+                <td>26/04/2026</td>
+                <td>Camila Santos</td>
+                <td>Cabo USB-C Turbo</td>
+                <td>Diego Lima</td>
+                <td>Cartão de crédito - 2x</td>
+                <td>R$ 39,90</td>
+                <td><button class="btn secondary" onclick="showMessage('Edição da venda aberta no protótipo!')">Editar</button></td>
+              </tr>
+              <tr>
+                <td>25/04/2026</td>
+                <td>João Pedro</td>
+                <td>Carregador 20W</td>
+                <td>Rafael Souza</td>
+                <td>Dinheiro</td>
+                <td>R$ 69,90</td>
+                <td><button class="btn secondary" onclick="showMessage('Edição da venda aberta no protótipo!')">Editar</button></td>
+              </tr>
+              <tr>
+                <td>25/04/2026</td>
+                <td>Fernanda Lima</td>
+                <td>Película Samsung A15</td>
+                <td>Juliana Castro</td>
+                <td>Cartão de débito</td>
+                <td>R$ 29,90</td>
+                <td><button class="btn secondary" onclick="showMessage('Edição da venda aberta no protótipo!')">Editar</button></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
