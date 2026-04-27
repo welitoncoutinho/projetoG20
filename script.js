@@ -3,6 +3,7 @@ const titles = {
   produtos: "Produtos",
   estoque: "Estoque",
   vendas: "Vendas",
+  cadastros: "Cadastros",
   relatorios: "Relatórios"
 };
 
@@ -79,8 +80,14 @@ const stores = {
 let activeStoreKey = null;
 let activeRole = null;
 let stockData = {};
+let stockEditMode = false;
 let selectedSaleProducts = [];
 let saleProductQuantities = {};
+let salesSortState = { column: null, direction: "asc" };
+let sellerSortState = { column: null, direction: "asc" };
+let stockSortState = { key: null, direction: "asc" };
+let productsSortState = { column: null, direction: "asc" };
+let editingSaleRow = null;
 let toastTimer;
 
 function loginStore(event) {
@@ -131,6 +138,7 @@ function loginStore(event) {
 function logoutStore() {
   activeStoreKey = null;
   activeRole = null;
+  stockEditMode = false;
   document.getElementById("appShell").classList.add("hidden");
   document.getElementById("loginScreen").classList.remove("hidden");
   document.querySelector(".login-form").reset();
@@ -205,6 +213,11 @@ function applyAdminContext() {
 }
 
 function showPage(pageId, button) {
+  if (pageId === "cadastros" && activeRole !== "admin") {
+    showMessage("Somente o administrador pode acessar cadastros.");
+    return;
+  }
+
   const selectedPage = document.getElementById(pageId);
   const pageTitle = document.getElementById("pageTitle");
 
@@ -251,6 +264,133 @@ function setText(id, value) {
   if (element) {
     element.textContent = value;
   }
+}
+
+function saveProductType() {
+  const typeInput = document.getElementById("newProductTypeInput");
+  const statusInput = document.getElementById("newProductTypeStatus");
+  const descriptionInput = document.getElementById("newProductTypeDescription");
+  const tableBody = document.getElementById("productTypesTableBody");
+  const productTypeSelect = document.getElementById("productTypeSelect");
+  const typeName = typeInput?.value.trim() || "";
+
+  if (!typeName) {
+    showMessage("Informe o nome do tipo de produto.");
+    typeInput?.focus();
+    return;
+  }
+
+  if (isDuplicateTableValue(tableBody, typeName)) {
+    showMessage("Esse tipo de produto já está cadastrado.");
+    return;
+  }
+
+  const row = document.createElement("tr");
+  appendTextCell(row, typeName);
+  appendTextCell(row, descriptionInput?.value.trim() || "-");
+  appendBadgeCell(row, statusInput?.value || "Ativo");
+  tableBody?.appendChild(row);
+
+  if (productTypeSelect && !Array.from(productTypeSelect.options).some((option) => option.value === typeName)) {
+    addSelectOption(productTypeSelect, typeName, typeName);
+  }
+
+  typeInput.value = "";
+  if (descriptionInput) descriptionInput.value = "";
+  if (statusInput) statusInput.value = "Ativo";
+  showMessage("Tipo de produto cadastrado.");
+}
+
+function saveStoreRegistration() {
+  const nameInput = document.getElementById("newStoreNameInput");
+  const managerInput = document.getElementById("newStoreManagerInput");
+  const statusInput = document.getElementById("newStoreStatus");
+  const phoneInput = document.getElementById("newStorePhoneInput");
+  const addressInput = document.getElementById("newStoreAddressInput");
+  const tableBody = document.getElementById("storesRegistrationTableBody");
+  const storeName = nameInput?.value.trim() || "";
+
+  if (!storeName) {
+    showMessage("Informe o nome da loja.");
+    nameInput?.focus();
+    return;
+  }
+
+  if (isDuplicateTableValue(tableBody, storeName)) {
+    showMessage("Essa loja já está cadastrada.");
+    return;
+  }
+
+  const row = document.createElement("tr");
+  appendTextCell(row, storeName);
+  appendTextCell(row, managerInput?.value.trim() || "-");
+  appendTextCell(row, phoneInput?.value.trim() || "-");
+  appendTextCell(row, addressInput?.value.trim() || "-");
+  appendBadgeCell(row, statusInput?.value || "Operando");
+  tableBody?.appendChild(row);
+
+  addStoreOption("storeOptions", storeName);
+  addStoreOption("initialStoreSelect", storeName);
+  addStoreOption("saleStoreSelect", storeName);
+
+  [nameInput, managerInput, phoneInput, addressInput].forEach((input) => {
+    if (input) input.value = "";
+  });
+
+  if (statusInput) statusInput.value = "Operando";
+  showMessage("Loja cadastrada.");
+}
+
+function isDuplicateTableValue(tableBody, value) {
+  if (!tableBody) {
+    return false;
+  }
+
+  return Array.from(tableBody.querySelectorAll("tr td:first-child")).some((cell) => {
+    return normalizeText(cell.textContent) === normalizeText(value);
+  });
+}
+
+function appendTextCell(row, value) {
+  const cell = document.createElement("td");
+  cell.textContent = value;
+  row.appendChild(cell);
+}
+
+function appendBadgeCell(row, value) {
+  const cell = document.createElement("td");
+  const badge = document.createElement("span");
+  badge.className = `badge ${getStatusBadgeClass(value)}`;
+  badge.textContent = value;
+  cell.appendChild(badge);
+  row.appendChild(cell);
+}
+
+function getStatusBadgeClass(value) {
+  const normalizedValue = normalizeText(value);
+
+  if (normalizedValue.includes("inativo") || normalizedValue.includes("inativa")) {
+    return "low";
+  }
+
+  if (normalizedValue.includes("implantacao")) {
+    return "info";
+  }
+
+  return "ok";
+}
+
+function addStoreOption(selectId, storeName) {
+  const select = document.getElementById(selectId);
+
+  if (!select || Array.from(select.children).some((option) => option.value === storeName)) {
+    return;
+  }
+
+  const option = document.createElement("option");
+  option.value = storeName;
+  option.textContent = select.tagName === "DATALIST" ? "" : storeName;
+  select.appendChild(option);
 }
 
 function findStoreKeyByName(storeName) {
@@ -364,7 +504,7 @@ function renderStockTable() {
       }
 
       const value = Number(stockData[productKey]?.[storeKey] || 0);
-      const canEdit = activeRole === "admin";
+      const canEdit = activeRole === "admin" && stockEditMode;
 
       if (canEdit) {
         cell.innerHTML = `<input class="stock-input" type="number" min="0" value="${value}" data-stock-input="${productKey}" data-store-key="${storeKey}">`;
@@ -391,9 +531,26 @@ function updateStockRowTotal(row) {
   }
 }
 
+function enableStockEditing() {
+  if (activeRole !== "admin") {
+    showMessage("Somente o administrador pode editar o estoque.");
+    return;
+  }
+
+  stockEditMode = true;
+  renderStockTable();
+  updateAdminControls();
+  showMessage("Edição de estoque ativada.");
+}
+
 function saveStockChanges() {
   if (activeRole !== "admin") {
     showMessage("Somente o administrador pode alterar o estoque.");
+    return;
+  }
+
+  if (!stockEditMode) {
+    showMessage("Clique em Editar estoque antes de salvar.");
     return;
   }
 
@@ -409,6 +566,7 @@ function saveStockChanges() {
 
   localStorage.setItem(stockStorageKey, JSON.stringify(stockData));
 
+  stockEditMode = false;
   applyAdminContext();
 
   showMessage("Estoque atualizado com sucesso.");
@@ -418,6 +576,172 @@ function showStockColumns(storeKey) {
   document.querySelectorAll("[data-store-stock]").forEach((cell) => {
     const shouldHide = storeKey !== "all" && cell.dataset.storeStock !== storeKey;
     cell.classList.toggle("hidden", shouldHide);
+  });
+
+  document.querySelectorAll("[data-stock-status]").forEach((cell) => {
+    cell.classList.toggle("hidden", storeKey === "all");
+  });
+}
+
+function filterStockRows(searchTerm) {
+  const normalizedSearch = normalizeText(searchTerm);
+
+  document.querySelectorAll("[data-stock-row]").forEach((row) => {
+    const productName = row.querySelector("td:first-child")?.textContent || "";
+    row.classList.toggle("hidden", !normalizeText(productName).includes(normalizedSearch));
+  });
+}
+
+function sortStockTable(sortKey, type) {
+  const firstStockRow = document.querySelector("[data-stock-row]");
+  const tableBody = firstStockRow?.parentElement;
+
+  if (!tableBody) {
+    return;
+  }
+
+  const direction = stockSortState.key === sortKey && stockSortState.direction === "asc" ? "desc" : "asc";
+  const rows = Array.from(tableBody.querySelectorAll("[data-stock-row]"));
+
+  rows.sort((firstRow, secondRow) => {
+    const firstValue = getStockSortValue(firstRow, sortKey, type);
+    const secondValue = getStockSortValue(secondRow, sortKey, type);
+    const comparison = type === "text"
+      ? String(firstValue).localeCompare(String(secondValue), "pt-BR")
+      : firstValue - secondValue;
+
+    return direction === "asc" ? comparison : -comparison;
+  });
+
+  rows.forEach((row) => tableBody.appendChild(row));
+  stockSortState = { key: sortKey, direction };
+}
+
+function getStockSortValue(row, sortKey, type) {
+  let cell;
+
+  if (sortKey === "product") {
+    cell = row.querySelector("td:first-child");
+  } else if (sortKey === "status") {
+    cell = row.querySelector("[data-stock-status]");
+  } else {
+    cell = row.querySelector(`[data-store-stock="${sortKey}"]`);
+  }
+
+  if (!cell) {
+    return type === "number" ? 0 : "";
+  }
+
+  const input = cell.querySelector("input");
+  const value = input ? input.value : cell.textContent;
+
+  if (type === "number") {
+    return Number(value) || 0;
+  }
+
+  return normalizeText(value);
+}
+
+function sortProductsTable(columnIndex, type) {
+  const firstProductRow = document.querySelector("#produtos table tbody tr");
+  const tableBody = firstProductRow?.parentElement;
+
+  if (!tableBody) {
+    return;
+  }
+
+  const direction = productsSortState.column === columnIndex && productsSortState.direction === "asc" ? "desc" : "asc";
+  const rows = Array.from(tableBody.querySelectorAll("tr"));
+
+  rows.sort((firstRow, secondRow) => {
+    const firstValue = getProductsSortValue(firstRow, columnIndex, type);
+    const secondValue = getProductsSortValue(secondRow, columnIndex, type);
+    const comparison = type === "text"
+      ? String(firstValue).localeCompare(String(secondValue), "pt-BR")
+      : firstValue - secondValue;
+
+    return direction === "asc" ? comparison : -comparison;
+  });
+
+  rows.forEach((row) => tableBody.appendChild(row));
+  productsSortState = { column: columnIndex, direction };
+}
+
+function getProductsSortValue(row, columnIndex, type) {
+  const value = row.children[columnIndex]?.textContent.trim() || "";
+
+  if (type === "money") {
+    return parseBrazilianMoney(value);
+  }
+
+  if (type === "number") {
+    return Number(value) || 0;
+  }
+
+  return normalizeText(value);
+}
+
+function openProductFilters() {
+  document.getElementById("productFilterModal")?.classList.remove("hidden");
+}
+
+function closeProductFilters() {
+  document.getElementById("productFilterModal")?.classList.add("hidden");
+}
+
+function applyProductFilters() {
+  const text = normalizeText(document.getElementById("productTextFilter")?.value || "");
+  const type = document.getElementById("productTypeFilter")?.value || "all";
+  const status = document.getElementById("productStatusFilter")?.value || "all";
+  const minPrice = parseBrazilianMoney(document.getElementById("productMinPriceFilter")?.value || "");
+  const maxPriceValue = document.getElementById("productMaxPriceFilter")?.value || "";
+  const maxPrice = maxPriceValue.trim() ? parseBrazilianMoney(maxPriceValue) : Infinity;
+  const minStock = Number(document.getElementById("productMinStockFilter")?.value || 0);
+  const maxStockValue = document.getElementById("productMaxStockFilter")?.value || "";
+  const maxStock = maxStockValue.trim() ? Number(maxStockValue) : Infinity;
+
+  document.querySelectorAll("#productsTableBody tr").forEach((row) => {
+    const cells = row.querySelectorAll("td");
+    const rowSku = normalizeText(cells[0]?.textContent || "");
+    const rowProduct = normalizeText(cells[1]?.textContent || "");
+    const rowType = cells[2]?.textContent || "";
+    const rowPrice = parseBrazilianMoney(cells[3]?.textContent || "");
+    const rowStock = Number(cells[4]?.textContent || 0);
+    const rowStatus = cells[5]?.textContent || "";
+    const matchesText = !text || rowSku.includes(text) || rowProduct.includes(text);
+    const matchesType = type === "all" || normalizeText(rowType) === normalizeText(type);
+    const matchesStatus = status === "all" || normalizeText(rowStatus) === normalizeText(status);
+    const matchesPrice = rowPrice >= minPrice && rowPrice <= maxPrice;
+    const matchesStock = rowStock >= minStock && rowStock <= maxStock;
+
+    row.classList.toggle("hidden", !(matchesText && matchesType && matchesStatus && matchesPrice && matchesStock));
+  });
+
+  closeProductFilters();
+}
+
+function clearProductFilters() {
+  const filterIds = [
+    "productTextFilter",
+    "productMinPriceFilter",
+    "productMaxPriceFilter",
+    "productMinStockFilter",
+    "productMaxStockFilter"
+  ];
+
+  filterIds.forEach((id) => {
+    const input = document.getElementById(id);
+    if (input) input.value = "";
+  });
+
+  const type = document.getElementById("productTypeFilter");
+  const status = document.getElementById("productStatusFilter");
+
+  if (type) type.value = "all";
+  if (status) status.value = "all";
+
+  document.querySelectorAll("#productsTableBody tr").forEach((row) => {
+    row.classList.remove("hidden");
   });
 }
 
@@ -513,7 +837,7 @@ function renderSaleProductResults(searchTerm) {
 
   results.innerHTML = "";
 
-  if (!searchTerm.trim() || products.length === 0) {
+  if (products.length === 0) {
     results.classList.add("hidden");
     return;
   }
@@ -630,7 +954,7 @@ function finalizeSale() {
 
   const row = document.createElement("tr");
   const values = [
-    new Date().toLocaleDateString("pt-BR"),
+    formatSaleDateTime(new Date()),
     customerInput?.value.trim() || "Cliente não informado",
     getSaleProductsText(),
     document.getElementById("saleSellerSelect")?.value || "-",
@@ -645,16 +969,29 @@ function finalizeSale() {
   });
 
   const actionCell = document.createElement("td");
+  actionCell.dataset.saleAction = "";
+  const actionWrapper = document.createElement("div");
+  actionWrapper.className = "sale-action-buttons";
   const editButton = document.createElement("button");
-  editButton.className = "btn secondary";
+  editButton.className = "btn secondary sale-edit-btn";
   editButton.textContent = "Editar";
-  editButton.addEventListener("click", () => showMessage("Edição da venda aberta no protótipo!"));
-  actionCell.appendChild(editButton);
+  editButton.addEventListener("click", () => openSaleEditModal(editButton));
+  actionWrapper.appendChild(editButton);
+  actionCell.appendChild(actionWrapper);
   row.appendChild(actionCell);
 
   salesTableBody.prepend(row);
+  updateSaleEditControls();
+  filterSalesRows();
   resetSaleForm();
   showMessage("Venda finalizada e adicionada em vendas realizadas.");
+}
+
+function formatSaleDateTime(date) {
+  return `${date.toLocaleDateString("pt-BR")} ${date.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit"
+  })}`;
 }
 
 function getSaleProductsText() {
@@ -717,6 +1054,396 @@ function resetSaleForm() {
   updateSalePrice();
 }
 
+function filterSalesRows() {
+  const period = document.getElementById("salesPeriodFilter")?.value || "all";
+  const minPrice = parseBrazilianMoney(document.getElementById("salesMinPriceFilter")?.value || "");
+  const maxPriceValue = document.getElementById("salesMaxPriceFilter")?.value || "";
+  const maxPrice = maxPriceValue.trim() ? parseBrazilianMoney(maxPriceValue) : Infinity;
+  const seller = normalizeText(document.getElementById("salesSellerFilter")?.value || "");
+  const payment = document.getElementById("salesPaymentFilter")?.value || "all";
+
+  document.querySelectorAll("#salesTableBody tr").forEach((row) => {
+    const cells = row.querySelectorAll("td");
+    const rowDate = parseBrazilianDate(cells[0]?.textContent || "");
+    const rowSeller = normalizeText(cells[3]?.textContent || "");
+    const rowPayment = normalizeText(cells[4]?.textContent || "");
+    const rowTotal = parseBrazilianMoney(cells[5]?.textContent || "");
+    const matchesPeriod = matchesSalesPeriod(rowDate, period);
+    const matchesPrice = rowTotal >= minPrice && rowTotal <= maxPrice;
+    const matchesSeller = !seller || rowSeller.includes(seller);
+    const matchesPayment = payment === "all" || rowPayment.includes(normalizeText(payment));
+
+    row.classList.toggle("hidden", !(matchesPeriod && matchesPrice && matchesSeller && matchesPayment));
+  });
+}
+
+function parseBrazilianDate(value) {
+  const dateMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+
+  if (!dateMatch) {
+    return null;
+  }
+
+  const [, day, month, year, hour = "0", minute = "0"] = dateMatch;
+  return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+}
+
+function matchesSalesPeriod(date, period) {
+  if (period === "all") {
+    return true;
+  }
+
+  if (!date) {
+    return false;
+  }
+
+  const saleDate = new Date(date);
+  saleDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (period === "0") {
+    return saleDate.getTime() === today.getTime();
+  }
+
+  if (period === "yesterday") {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return saleDate.getTime() === yesterday.getTime();
+  }
+
+  const days = Number(period);
+  const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0);
+  startDate.setDate(startDate.getDate() - days);
+
+  return saleDate >= startDate;
+}
+
+function openSalesFilters() {
+  document.getElementById("salesFilterModal")?.classList.remove("hidden");
+}
+
+function closeSalesFilters() {
+  document.getElementById("salesFilterModal")?.classList.add("hidden");
+}
+
+function applySalesFilters() {
+  filterSalesRows();
+  closeSalesFilters();
+}
+
+function openSaleEditModal(button) {
+  if (activeRole !== "admin") {
+    showMessage("Somente o administrador pode editar vendas.");
+    return;
+  }
+
+  const row = button.closest("tr");
+
+  if (!row) {
+    return;
+  }
+
+  const cells = row.querySelectorAll("td");
+  editingSaleRow = row;
+  populateEditSaleSellerSelect(cells[3]?.textContent || "");
+  populateEditSalePaymentSelect(cells[4]?.textContent || "");
+
+  setInputValue("editSaleDateInput", cells[0]?.textContent || "");
+  setInputValue("editSaleCustomerInput", cells[1]?.textContent || "");
+  setInputValue("editSaleProductsInput", cells[2]?.textContent || "");
+  setInputValue("editSaleTotalInput", cells[5]?.textContent || "");
+  setInputValue("editSaleReasonInput", "");
+
+  document.getElementById("saleEditModal")?.classList.remove("hidden");
+}
+
+function populateEditSaleSellerSelect(currentSeller) {
+  const select = document.getElementById("editSaleSellerInput");
+
+  if (!select) {
+    return;
+  }
+
+  const sellerNames = getAllSellerNames();
+  select.innerHTML = "";
+
+  sellerNames.forEach((sellerName) => {
+    addSelectOption(select, sellerName, sellerName);
+  });
+
+  if (currentSeller && !sellerNames.includes(currentSeller)) {
+    addSelectOption(select, currentSeller, currentSeller);
+  }
+
+  select.value = currentSeller || sellerNames[0] || "";
+}
+
+function populateEditSalePaymentSelect(currentPayment) {
+  const select = document.getElementById("editSalePaymentInput");
+
+  if (!select) {
+    return;
+  }
+
+  const paymentOptions = ["Pix", "Dinheiro", "Cartão de crédito", "Cartão de débito", "Pagamento misto"];
+  const selectedPayment = getBasePaymentMethod(currentPayment);
+
+  select.innerHTML = "";
+  paymentOptions.forEach((payment) => addSelectOption(select, payment, payment));
+  select.value = selectedPayment || paymentOptions[0];
+}
+
+function getAllSellerNames() {
+  return [...new Set(Object.values(stores).flatMap((store) => {
+    return store.sellers.map((seller) => seller.name);
+  }))];
+}
+
+function getBasePaymentMethod(payment) {
+  const normalizedPayment = normalizeText(payment);
+
+  if (normalizedPayment.includes("pagamento misto")) return "Pagamento misto";
+  if (normalizedPayment.includes("cartao de credito")) return "Cartão de crédito";
+  if (normalizedPayment.includes("cartao de debito")) return "Cartão de débito";
+  if (normalizedPayment.includes("dinheiro")) return "Dinheiro";
+  if (normalizedPayment.includes("pix")) return "Pix";
+
+  return "";
+}
+
+function addSelectOption(select, value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  select.appendChild(option);
+}
+
+function closeSaleEditModal() {
+  document.getElementById("saleEditModal")?.classList.add("hidden");
+  editingSaleRow = null;
+}
+
+function saveSaleEdit() {
+  if (!editingSaleRow) {
+    return;
+  }
+
+  const reason = getSaleEditReason();
+
+  if (!reason) {
+    showMessage("Informe o motivo da edição da venda.");
+    document.getElementById("editSaleReasonInput")?.focus();
+    return;
+  }
+
+  const cells = editingSaleRow.querySelectorAll("td");
+  const values = [
+    cells[0]?.textContent || "",
+    document.getElementById("editSaleCustomerInput")?.value.trim(),
+    document.getElementById("editSaleProductsInput")?.value.trim(),
+    document.getElementById("editSaleSellerInput")?.value.trim(),
+    document.getElementById("editSalePaymentInput")?.value.trim(),
+    document.getElementById("editSaleTotalInput")?.value.trim()
+  ];
+
+  values.forEach((value, index) => {
+    if (cells[index]) {
+      cells[index].textContent = value || "-";
+    }
+  });
+
+  editingSaleRow.dataset.editReason = reason;
+  ensureSaleReasonButton(editingSaleRow);
+  filterSalesRows();
+  closeSaleEditModal();
+  showMessage("Venda atualizada com sucesso.");
+}
+
+function deleteSaleFromEdit() {
+  if (!editingSaleRow) {
+    return;
+  }
+
+  const reason = getSaleEditReason();
+
+  if (!reason) {
+    showMessage("Informe o motivo da edição antes de excluir a venda.");
+    document.getElementById("editSaleReasonInput")?.focus();
+    return;
+  }
+
+  const confirmed = window.confirm("Deseja realmente excluir esta venda?");
+
+  if (!confirmed) {
+    return;
+  }
+
+  editingSaleRow.remove();
+  closeSaleEditModal();
+  filterSalesRows();
+  showMessage("Venda excluída com sucesso.");
+}
+
+function getSaleEditReason() {
+  return document.getElementById("editSaleReasonInput")?.value.trim() || "";
+}
+
+function ensureSaleReasonButton(row) {
+  const actionCell = row.querySelector("[data-sale-action]");
+
+  if (!actionCell) {
+    return;
+  }
+
+  let actionWrapper = actionCell.querySelector(".sale-action-buttons");
+
+  if (!actionWrapper) {
+    actionWrapper = document.createElement("div");
+    actionWrapper.className = "sale-action-buttons";
+    actionWrapper.append(...Array.from(actionCell.childNodes));
+    actionCell.appendChild(actionWrapper);
+  }
+
+  if (actionWrapper.querySelector(".sale-history-btn")) {
+    return;
+  }
+
+  const reasonButton = document.createElement("button");
+  reasonButton.type = "button";
+  reasonButton.className = "btn secondary icon-btn sale-history-btn";
+  reasonButton.title = "Ver motivo da edição";
+  reasonButton.setAttribute("aria-label", "Ver motivo da edição");
+  reasonButton.innerHTML = getEyeIconMarkup();
+  reasonButton.addEventListener("click", () => openSaleEditReasonModal(reasonButton));
+  actionWrapper.appendChild(reasonButton);
+  updateSaleEditControls();
+}
+
+function getEyeIconMarkup() {
+  return `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path>
+      <circle cx="12" cy="12" r="3"></circle>
+    </svg>
+  `;
+}
+
+function openSaleEditReasonModal(button) {
+  const row = button.closest("tr");
+  const reason = row?.dataset.editReason || "Motivo não informado.";
+
+  setText("saleEditReasonText", reason);
+  document.getElementById("saleEditReasonModal")?.classList.remove("hidden");
+}
+
+function closeSaleEditReasonModal() {
+  document.getElementById("saleEditReasonModal")?.classList.add("hidden");
+}
+
+function setInputValue(id, value) {
+  const input = document.getElementById(id);
+
+  if (input) {
+    input.value = value;
+  }
+}
+
+function clearSalesFilters() {
+  const period = document.getElementById("salesPeriodFilter");
+  const minPrice = document.getElementById("salesMinPriceFilter");
+  const maxPrice = document.getElementById("salesMaxPriceFilter");
+  const seller = document.getElementById("salesSellerFilter");
+  const payment = document.getElementById("salesPaymentFilter");
+
+  if (period) period.value = "all";
+  if (minPrice) minPrice.value = "";
+  if (maxPrice) maxPrice.value = "";
+  if (seller) seller.value = "";
+  if (payment) payment.value = "all";
+
+  filterSalesRows();
+}
+
+function sortSalesTable(columnIndex, type) {
+  const tableBody = document.getElementById("salesTableBody");
+
+  if (!tableBody) {
+    return;
+  }
+
+  const direction = salesSortState.column === columnIndex && salesSortState.direction === "asc" ? "desc" : "asc";
+  const rows = Array.from(tableBody.querySelectorAll("tr"));
+
+  rows.sort((firstRow, secondRow) => {
+    const firstValue = getSalesSortValue(firstRow, columnIndex, type);
+    const secondValue = getSalesSortValue(secondRow, columnIndex, type);
+    const comparison = type === "text"
+      ? String(firstValue).localeCompare(String(secondValue), "pt-BR")
+      : firstValue - secondValue;
+
+    return direction === "asc" ? comparison : -comparison;
+  });
+
+  rows.forEach((row) => tableBody.appendChild(row));
+  salesSortState = { column: columnIndex, direction };
+  filterSalesRows();
+}
+
+function getSalesSortValue(row, columnIndex, type) {
+  const value = row.children[columnIndex]?.textContent.trim() || "";
+
+  if (type === "date") {
+    return parseBrazilianDate(value)?.getTime() || 0;
+  }
+
+  if (type === "money") {
+    return parseBrazilianMoney(value);
+  }
+
+  return normalizeText(value);
+}
+
+function sortSellerReport(columnIndex, type) {
+  const tableBody = document.getElementById("sellerReportBody");
+
+  if (!tableBody) {
+    return;
+  }
+
+  const direction = sellerSortState.column === columnIndex && sellerSortState.direction === "asc" ? "desc" : "asc";
+  const rows = Array.from(tableBody.querySelectorAll("tr"));
+
+  rows.sort((firstRow, secondRow) => {
+    const firstValue = getSellerSortValue(firstRow, columnIndex, type);
+    const secondValue = getSellerSortValue(secondRow, columnIndex, type);
+    const comparison = type === "text"
+      ? String(firstValue).localeCompare(String(secondValue), "pt-BR")
+      : firstValue - secondValue;
+
+    return direction === "asc" ? comparison : -comparison;
+  });
+
+  rows.forEach((row) => tableBody.appendChild(row));
+  sellerSortState = { column: columnIndex, direction };
+}
+
+function getSellerSortValue(row, columnIndex, type) {
+  const value = row.children[columnIndex]?.textContent.trim() || "";
+
+  if (type === "money") {
+    return parseBrazilianMoney(value);
+  }
+
+  if (type === "number") {
+    return Number(value) || 0;
+  }
+
+  return normalizeText(value);
+}
+
 function renderSellerReport(sellers) {
   const tableBody = document.getElementById("sellerReportBody");
 
@@ -755,11 +1482,33 @@ function updateStoreFilterVisibility() {
 }
 
 function updateAdminControls() {
+  const editStockButton = document.getElementById("editStockButton");
   const saveStockButton = document.getElementById("saveStockButton");
+  const canManageStock = activeRole === "admin";
+
+  document.querySelectorAll("[data-admin-only]").forEach((element) => {
+    element.classList.toggle("hidden", !canManageStock);
+  });
+
+  if (editStockButton) {
+    editStockButton.classList.toggle("hidden", !canManageStock || stockEditMode);
+  }
 
   if (saveStockButton) {
-    saveStockButton.classList.toggle("hidden", activeRole !== "admin");
+    saveStockButton.classList.toggle("hidden", !canManageStock || !stockEditMode);
   }
+
+  updateSaleEditControls();
+}
+
+function updateSaleEditControls() {
+  document.querySelectorAll("[data-sale-action]").forEach((cell) => {
+    cell.classList.toggle("hidden", activeRole !== "admin");
+  });
+
+  document.querySelectorAll(".sale-edit-btn, .sale-history-btn").forEach((button) => {
+    button.classList.toggle("hidden", activeRole !== "admin");
+  });
 }
 
 document.querySelectorAll("[data-store-filter]").forEach((button) => {
@@ -774,6 +1523,10 @@ document.querySelectorAll("[data-store-filter]").forEach((button) => {
 document.addEventListener("input", (event) => {
   if (event.target.matches("[data-stock-input]")) {
     updateStockRowTotal(event.target.closest("[data-stock-row]"));
+  }
+
+  if (event.target.matches("#stockSearchInput")) {
+    filterStockRows(event.target.value);
   }
 
   if (event.target.matches("#saleProductSelect")) {
@@ -792,6 +1545,10 @@ document.addEventListener("input", (event) => {
 
   if (event.target.matches(".mixed-payment-value")) {
     updatePaymentSummary();
+  }
+
+  if (event.target.matches("#salesMinPriceFilter, #salesMaxPriceFilter, #salesSellerFilter")) {
+    filterSalesRows();
   }
 });
 
@@ -814,13 +1571,9 @@ document.addEventListener("change", (event) => {
   if (event.target.matches("#salePaymentSelect, #saleInstallmentsSelect, .mixed-payment-method")) {
     updatePaymentSummary();
   }
-});
 
-document.addEventListener("click", (event) => {
-  const results = document.getElementById("saleProductResults");
-
-  if (results && !event.target.closest("#saleProductResults") && !event.target.matches("#saleProductSelect")) {
-    results.classList.add("hidden");
+  if (event.target.matches("#salesPeriodFilter, #salesPaymentFilter")) {
+    filterSalesRows();
   }
 });
 

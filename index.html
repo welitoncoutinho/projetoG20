@@ -44,6 +44,7 @@
         <button onclick="showPage('produtos', this)">Produtos</button>
         <button onclick="showPage('estoque', this)">Estoque</button>
         <button onclick="showPage('vendas', this)">Vendas</button>
+        <button data-admin-only onclick="showPage('cadastros', this)">Cadastros</button>
         <button onclick="showPage('relatorios', this)">Relatórios</button>
       </nav>
 
@@ -102,7 +103,7 @@
             <div class="form-group"><label>Nome do produto</label><input placeholder="Ex: Capinha iPhone 14"></div>
             <div class="form-group">
               <label>Tipo</label>
-              <select>
+              <select id="productTypeSelect">
                 <option>Capinha</option>
                 <option>Película</option>
                 <option>Carregador</option>
@@ -131,16 +132,16 @@
           <div class="section-header">
             <h2>Produtos cadastrados</h2>
             <div class="actions">
-              <button class="btn secondary">Filtrar</button>
+              <button class="btn secondary" onclick="openProductFilters()">Filtrar</button>
               <button class="btn secondary">Importar planilha</button>
             </div>
           </div>
 
           <table>
             <thead>
-              <tr><th>SKU</th><th>Produto</th><th>Tipo</th><th>Preço</th><th>Total estoque</th><th>Status</th></tr>
+              <tr><th>SKU <button class="sort-btn" type="button" onclick="sortProductsTable(0, 'text')">↕</button></th><th>Produto <button class="sort-btn" type="button" onclick="sortProductsTable(1, 'text')">↕</button></th><th>Tipo <button class="sort-btn" type="button" onclick="sortProductsTable(2, 'text')">↕</button></th><th>Preço <button class="sort-btn" type="button" onclick="sortProductsTable(3, 'money')">↕</button></th><th>Total estoque <button class="sort-btn" type="button" onclick="sortProductsTable(4, 'number')">↕</button></th><th>Status <button class="sort-btn" type="button" onclick="sortProductsTable(5, 'text')">↕</button></th></tr>
             </thead>
-            <tbody>
+            <tbody id="productsTableBody">
               <tr><td>CAP-IP14-001</td><td>Capinha iPhone 14 Transparente</td><td>Capinha</td><td>R$ 49,90</td><td>42</td><td><span class="badge ok">Ativo</span></td></tr>
               <tr><td>PEL-SAM-A15</td><td>Película Samsung A15</td><td>Película</td><td>R$ 29,90</td><td>8</td><td><span class="badge low">Estoque baixo</span></td></tr>
               <tr><td>CAB-TYPEC-02</td><td>Cabo USB-C Turbo</td><td>Cabo</td><td>R$ 39,90</td><td>76</td><td><span class="badge ok">Ativo</span></td></tr>
@@ -154,6 +155,7 @@
           <div class="section-header">
             <h2>Consulta de estoque</h2>
             <div class="actions">
+              <button id="editStockButton" class="btn secondary" onclick="enableStockEditing()">Editar estoque</button>
               <button id="saveStockButton" class="btn green" onclick="saveStockChanges()">Salvar estoque</button>
               <button class="btn orange">Transferir entre lojas</button>
             </div>
@@ -167,15 +169,20 @@
             <button data-store-filter="primeiroDeMaio">G20 1º de maio</button>
           </div>
 
+          <div class="stock-search">
+            <label for="stockSearchInput">Pesquisar produto</label>
+            <input id="stockSearchInput" placeholder="Digite o nome do produto">
+          </div>
+
           <table>
             <thead>
-              <tr><th>Produto</th><th data-store-stock="saoBernado">G20 São Bernado</th><th data-store-stock="floramar">G20 Floramar</th><th data-store-stock="guarani">G20 Guarani</th><th data-store-stock="primeiroDeMaio">G20 1º de maio</th><th data-store-stock="total">Total</th><th>Situação</th></tr>
+              <tr><th>Produto <button class="sort-btn" type="button" onclick="sortStockTable('product', 'text')">↕</button></th><th data-store-stock="saoBernado">G20 São Bernado <button class="sort-btn" type="button" onclick="sortStockTable('saoBernado', 'number')">↕</button></th><th data-store-stock="floramar">G20 Floramar <button class="sort-btn" type="button" onclick="sortStockTable('floramar', 'number')">↕</button></th><th data-store-stock="guarani">G20 Guarani <button class="sort-btn" type="button" onclick="sortStockTable('guarani', 'number')">↕</button></th><th data-store-stock="primeiroDeMaio">G20 1º de maio <button class="sort-btn" type="button" onclick="sortStockTable('primeiroDeMaio', 'number')">↕</button></th><th data-store-stock="total">Total <button class="sort-btn" type="button" onclick="sortStockTable('total', 'number')">↕</button></th><th data-stock-status>Situação <button class="sort-btn" type="button" onclick="sortStockTable('status', 'text')">↕</button></th></tr>
             </thead>
             <tbody>
-              <tr data-stock-row="capinha-iphone-14"><td>Capinha iPhone 14</td><td data-store-stock="saoBernado">12</td><td data-store-stock="floramar">10</td><td data-store-stock="guarani">8</td><td data-store-stock="primeiroDeMaio">12</td><td data-store-stock="total">42</td><td><span class="badge ok">Normal</span></td></tr>
-              <tr data-stock-row="pelicula-samsung-a15"><td>Película Samsung A15</td><td data-store-stock="saoBernado">2</td><td data-store-stock="floramar">3</td><td data-store-stock="guarani">1</td><td data-store-stock="primeiroDeMaio">2</td><td data-store-stock="total">8</td><td><span class="badge low">Baixo</span></td></tr>
-              <tr data-stock-row="cabo-usb-c-turbo"><td>Cabo USB-C Turbo</td><td data-store-stock="saoBernado">20</td><td data-store-stock="floramar">16</td><td data-store-stock="guarani">18</td><td data-store-stock="primeiroDeMaio">22</td><td data-store-stock="total">76</td><td><span class="badge ok">Normal</span></td></tr>
-              <tr data-stock-row="carregador-20w"><td>Carregador 20W</td><td data-store-stock="saoBernado">5</td><td data-store-stock="floramar">7</td><td data-store-stock="guarani">3</td><td data-store-stock="primeiroDeMaio">2</td><td data-store-stock="total">17</td><td><span class="badge info">Atenção</span></td></tr>
+              <tr data-stock-row="capinha-iphone-14"><td>Capinha iPhone 14</td><td data-store-stock="saoBernado">12</td><td data-store-stock="floramar">10</td><td data-store-stock="guarani">8</td><td data-store-stock="primeiroDeMaio">12</td><td data-store-stock="total">42</td><td data-stock-status><span class="badge ok">Normal</span></td></tr>
+              <tr data-stock-row="pelicula-samsung-a15"><td>Película Samsung A15</td><td data-store-stock="saoBernado">2</td><td data-store-stock="floramar">3</td><td data-store-stock="guarani">1</td><td data-store-stock="primeiroDeMaio">2</td><td data-store-stock="total">8</td><td data-stock-status><span class="badge low">Baixo</span></td></tr>
+              <tr data-stock-row="cabo-usb-c-turbo"><td>Cabo USB-C Turbo</td><td data-store-stock="saoBernado">20</td><td data-store-stock="floramar">16</td><td data-store-stock="guarani">18</td><td data-store-stock="primeiroDeMaio">22</td><td data-store-stock="total">76</td><td data-stock-status><span class="badge ok">Normal</span></td></tr>
+              <tr data-stock-row="carregador-20w"><td>Carregador 20W</td><td data-store-stock="saoBernado">5</td><td data-store-stock="floramar">7</td><td data-store-stock="guarani">3</td><td data-store-stock="primeiroDeMaio">2</td><td data-store-stock="total">17</td><td data-stock-status><span class="badge info">Atenção</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -301,58 +308,156 @@
         <div class="section">
           <div class="section-header">
             <h2>Vendas realizadas</h2>
-            <button class="btn secondary">Filtrar vendas</button>
+            <button class="btn secondary" onclick="openSalesFilters()">Filtrar</button>
           </div>
 
           <table>
             <thead>
               <tr>
-                <th>Data</th>
-                <th>Cliente</th>
-                <th>Produtos</th>
-                <th>Vendedor</th>
-                <th>Pagamento</th>
-                <th>Total</th>
-                <th>Ação</th>
+                <th>Data/Hora <button class="sort-btn" type="button" onclick="sortSalesTable(0, 'date')">↕</button></th>
+                <th>Cliente <button class="sort-btn" type="button" onclick="sortSalesTable(1, 'text')">↕</button></th>
+                <th>Produtos <button class="sort-btn" type="button" onclick="sortSalesTable(2, 'text')">↕</button></th>
+                <th>Vendedor <button class="sort-btn" type="button" onclick="sortSalesTable(3, 'text')">↕</button></th>
+                <th>Pagamento <button class="sort-btn" type="button" onclick="sortSalesTable(4, 'text')">↕</button></th>
+                <th>Total <button class="sort-btn" type="button" onclick="sortSalesTable(5, 'money')">↕</button></th>
+                <th data-sale-action>Ação</th>
               </tr>
             </thead>
             <tbody id="salesTableBody">
               <tr>
-                <td>26/04/2026</td>
+                <td>26/04/2026 09:15</td>
                 <td>Marcos Vinicius</td>
                 <td>Capinha iPhone 14, Película Samsung A15</td>
                 <td>Ana Paula</td>
                 <td>Pix</td>
                 <td>R$ 79,80</td>
-                <td><button class="btn secondary" onclick="showMessage('Edição da venda aberta no protótipo!')">Editar</button></td>
+                <td data-sale-action><button class="btn secondary sale-edit-btn" onclick="openSaleEditModal(this)">Editar</button></td>
               </tr>
               <tr>
-                <td>26/04/2026</td>
+                <td>26/04/2026 14:40</td>
                 <td>Camila Santos</td>
                 <td>Cabo USB-C Turbo</td>
                 <td>Diego Lima</td>
                 <td>Cartão de crédito - 2x</td>
                 <td>R$ 39,90</td>
-                <td><button class="btn secondary" onclick="showMessage('Edição da venda aberta no protótipo!')">Editar</button></td>
+                <td data-sale-action><button class="btn secondary sale-edit-btn" onclick="openSaleEditModal(this)">Editar</button></td>
               </tr>
               <tr>
-                <td>25/04/2026</td>
+                <td>25/04/2026 10:05</td>
                 <td>João Pedro</td>
                 <td>Carregador 20W</td>
                 <td>Rafael Souza</td>
                 <td>Dinheiro</td>
                 <td>R$ 69,90</td>
-                <td><button class="btn secondary" onclick="showMessage('Edição da venda aberta no protótipo!')">Editar</button></td>
+                <td data-sale-action><button class="btn secondary sale-edit-btn" onclick="openSaleEditModal(this)">Editar</button></td>
               </tr>
               <tr>
-                <td>25/04/2026</td>
+                <td>25/04/2026 16:20</td>
                 <td>Fernanda Lima</td>
                 <td>Película Samsung A15</td>
                 <td>Juliana Castro</td>
                 <td>Cartão de débito</td>
                 <td>R$ 29,90</td>
-                <td><button class="btn secondary" onclick="showMessage('Edição da venda aberta no protótipo!')">Editar</button></td>
+                <td data-sale-action><button class="btn secondary sale-edit-btn" onclick="openSaleEditModal(this)">Editar</button></td>
               </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="cadastros" class="page">
+        <div class="section">
+          <div class="section-header">
+            <h2>Cadastro de tipos de produto</h2>
+            <button class="btn green" onclick="saveProductType()">Salvar tipo</button>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nome do tipo</label>
+              <input id="newProductTypeInput" placeholder="Ex: Smartwatch">
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="newProductTypeStatus">
+                <option>Ativo</option>
+                <option>Inativo</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Descrição</label>
+              <input id="newProductTypeDescription" placeholder="Ex: Relógios e acessórios">
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2>Tipos cadastrados</h2>
+          </div>
+
+          <table>
+            <thead>
+              <tr><th>Tipo</th><th>Descrição</th><th>Status</th></tr>
+            </thead>
+            <tbody id="productTypesTableBody">
+              <tr><td>Capinha</td><td>Capas e cases para celulares</td><td><span class="badge ok">Ativo</span></td></tr>
+              <tr><td>Película</td><td>Películas de proteção</td><td><span class="badge ok">Ativo</span></td></tr>
+              <tr><td>Carregador</td><td>Fontes e carregadores</td><td><span class="badge ok">Ativo</span></td></tr>
+              <tr><td>Cabo</td><td>Cabos USB e similares</td><td><span class="badge ok">Ativo</span></td></tr>
+              <tr><td>Fone</td><td>Fones com fio e bluetooth</td><td><span class="badge ok">Ativo</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2>Cadastro de lojas</h2>
+            <button class="btn green" onclick="saveStoreRegistration()">Salvar loja</button>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nome da loja</label>
+              <input id="newStoreNameInput" placeholder="Ex: G20 Centro">
+            </div>
+            <div class="form-group">
+              <label>Responsável</label>
+              <input id="newStoreManagerInput" placeholder="Nome do responsável">
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="newStoreStatus">
+                <option>Operando</option>
+                <option>Em implantação</option>
+                <option>Inativa</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Telefone</label>
+              <input id="newStorePhoneInput" placeholder="(31) 99999-9999">
+            </div>
+            <div class="form-group form-group-wide">
+              <label>Endereço</label>
+              <input id="newStoreAddressInput" placeholder="Rua, número, bairro e cidade">
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2>Lojas cadastradas</h2>
+          </div>
+
+          <table>
+            <thead>
+              <tr><th>Loja</th><th>Responsável</th><th>Telefone</th><th>Endereço</th><th>Status</th></tr>
+            </thead>
+            <tbody id="storesRegistrationTableBody">
+              <tr><td>G20 São Bernado</td><td>Ana Paula</td><td>-</td><td>-</td><td><span class="badge ok">Operando</span></td></tr>
+              <tr><td>G20 Floramar</td><td>Diego Lima</td><td>-</td><td>-</td><td><span class="badge ok">Operando</span></td></tr>
+              <tr><td>G20 Guarani</td><td>Mariana Alves</td><td>-</td><td>-</td><td><span class="badge ok">Operando</span></td></tr>
+              <tr><td>G20 1º de maio</td><td>Paulo Henrique</td><td>-</td><td>-</td><td><span class="badge ok">Operando</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -388,7 +493,7 @@
           </div>
 
           <table>
-            <thead><tr><th>Vendedor</th><th>Quantidade de vendas</th><th>Faturamento</th><th>Ticket médio</th><th>Destaque</th></tr></thead>
+            <thead><tr><th>Vendedor <button class="sort-btn" type="button" onclick="sortSellerReport(0, 'text')">↕</button></th><th>Quantidade de vendas <button class="sort-btn" type="button" onclick="sortSellerReport(1, 'number')">↕</button></th><th>Faturamento <button class="sort-btn" type="button" onclick="sortSellerReport(2, 'money')">↕</button></th><th>Ticket médio <button class="sort-btn" type="button" onclick="sortSellerReport(3, 'money')">↕</button></th><th>Destaque <button class="sort-btn" type="button" onclick="sortSellerReport(4, 'text')">↕</button></th></tr></thead>
             <tbody id="sellerReportBody"></tbody>
           </table>
         </div>
@@ -397,6 +502,173 @@
   </div>
 
   <div id="toast" class="toast"></div>
+
+  <div id="productFilterModal" class="modal hidden">
+    <div class="modal-panel">
+      <div class="section-header">
+        <h2>Filtros de produtos</h2>
+        <button class="btn secondary" onclick="closeProductFilters()">Fechar</button>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Buscar</label>
+          <input id="productTextFilter" placeholder="SKU ou produto">
+        </div>
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="productTypeFilter">
+            <option value="all">Todos</option>
+            <option>Capinha</option>
+            <option>Película</option>
+            <option>Cabo</option>
+            <option>Carregador</option>
+            <option>Fone</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="productStatusFilter">
+            <option value="all">Todos</option>
+            <option>Ativo</option>
+            <option>Estoque baixo</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Preço mínimo</label>
+          <input id="productMinPriceFilter" placeholder="R$ 0,00">
+        </div>
+        <div class="form-group">
+          <label>Preço máximo</label>
+          <input id="productMaxPriceFilter" placeholder="R$ 999,00">
+        </div>
+        <div class="form-group">
+          <label>Estoque mínimo</label>
+          <input id="productMinStockFilter" type="number" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Estoque máximo</label>
+          <input id="productMaxStockFilter" type="number" placeholder="999">
+        </div>
+      </div>
+
+      <div class="actions modal-actions">
+        <button class="btn green" onclick="applyProductFilters()">Aplicar filtros</button>
+        <button class="btn secondary" onclick="clearProductFilters()">Limpar filtros</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="salesFilterModal" class="modal hidden">
+    <div class="modal-panel">
+      <div class="section-header">
+        <h2>Filtros de vendas</h2>
+        <button class="btn secondary" onclick="closeSalesFilters()">Fechar</button>
+      </div>
+
+      <div class="sales-filters">
+        <div class="form-group">
+          <label>Período</label>
+          <select id="salesPeriodFilter">
+            <option value="all">Todo período</option>
+            <option value="0">Hoje</option>
+            <option value="yesterday">Ontem</option>
+            <option value="7">Últimos 7 dias</option>
+            <option value="30">Últimos 30 dias</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Preço mínimo</label>
+          <input id="salesMinPriceFilter" placeholder="R$ 0,00">
+        </div>
+        <div class="form-group">
+          <label>Preço máximo</label>
+          <input id="salesMaxPriceFilter" placeholder="R$ 999,00">
+        </div>
+        <div class="form-group">
+          <label>Vendedor</label>
+          <input id="salesSellerFilter" placeholder="Nome do vendedor">
+        </div>
+        <div class="form-group">
+          <label>Forma de pagamento</label>
+          <select id="salesPaymentFilter">
+            <option value="all">Todas</option>
+            <option>Pix</option>
+            <option>Dinheiro</option>
+            <option>Cartão de crédito</option>
+            <option>Cartão de débito</option>
+            <option>Pagamento misto</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions modal-actions">
+        <button class="btn green" onclick="applySalesFilters()">Aplicar filtros</button>
+        <button class="btn secondary" onclick="clearSalesFilters()">Limpar filtros</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saleEditModal" class="modal hidden">
+    <div class="modal-panel">
+      <div class="section-header">
+        <h2>Editar venda</h2>
+        <button class="btn secondary" onclick="closeSaleEditModal()">Fechar</button>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Data e hora</label>
+          <input id="editSaleDateInput" placeholder="27/04/2026 14:35" readonly>
+        </div>
+        <div class="form-group">
+          <label>Cliente</label>
+          <input id="editSaleCustomerInput" placeholder="Nome do cliente">
+        </div>
+        <div class="form-group">
+          <label>Vendedor</label>
+          <select id="editSaleSellerInput"></select>
+        </div>
+        <div class="form-group">
+          <label>Pagamento</label>
+          <select id="editSalePaymentInput"></select>
+        </div>
+        <div class="form-group">
+          <label>Total</label>
+          <input id="editSaleTotalInput" placeholder="R$ 0,00">
+        </div>
+        <div class="form-group">
+          <label>Observação da edição</label>
+          <input id="editSaleReasonInput" placeholder="Motivo da edição" required>
+        </div>
+        <div class="form-group form-group-wide">
+          <label>Produtos</label>
+          <textarea id="editSaleProductsInput" rows="3" placeholder="Produtos da venda"></textarea>
+        </div>
+      </div>
+
+      <div class="actions modal-actions">
+        <button class="btn red" onclick="deleteSaleFromEdit()">Excluir venda</button>
+        <button class="btn green" onclick="saveSaleEdit()">Salvar alterações</button>
+        <button class="btn secondary" onclick="closeSaleEditModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saleEditReasonModal" class="modal hidden">
+    <div class="modal-panel">
+      <div class="section-header">
+        <h2>Motivo da edição</h2>
+        <button class="btn secondary" onclick="closeSaleEditReasonModal()">Fechar</button>
+      </div>
+
+      <div class="reason-box" id="saleEditReasonText">-</div>
+
+      <div class="actions modal-actions">
+        <button class="btn secondary" onclick="closeSaleEditReasonModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>
