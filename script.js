@@ -916,6 +916,8 @@ function updatePaymentSummary() {
     installmentsSelect.value = "1";
   }
 
+  updateMixedPaymentInstallments();
+
   const installmentText = installmentsSelect.value === "1" ? "À vista" : `${installmentsSelect.value}x`;
 
   setText("saleSummaryPayment", paymentMethod);
@@ -924,19 +926,38 @@ function updatePaymentSummary() {
 }
 
 function getMixedPaymentSummary() {
-  const methodFields = document.querySelectorAll(".mixed-payment-method");
-  const valueFields = document.querySelectorAll(".mixed-payment-value");
   const payments = [];
 
-  valueFields.forEach((valueField, index) => {
-    const value = parseBrazilianMoney(valueField.value);
+  document.querySelectorAll(".mixed-payment-row").forEach((row) => {
+    const methodField = row.querySelector(".mixed-payment-method");
+    const valueField = row.querySelector(".mixed-payment-value");
+    const installmentsField = row.querySelector(".mixed-payment-installments");
+    const value = parseBrazilianMoney(valueField?.value || "");
 
     if (value > 0) {
-      payments.push(`${methodFields[index].value}: ${formatCurrency(value)}`);
+      const method = methodField?.value || "-";
+      const installments = installmentsField?.value || "1";
+      const installmentText = normalizeText(method) === "cartao de credito" && installments !== "1" ? ` - ${installments}x` : "";
+      payments.push(`${method}${installmentText}: ${formatCurrency(value)}`);
     }
   });
 
   return payments.length ? payments.join(" | ") : "Informe os valores";
+}
+
+function updateMixedPaymentInstallments() {
+  document.querySelectorAll(".mixed-payment-row").forEach((row) => {
+    const methodField = row.querySelector(".mixed-payment-method");
+    const installmentsGroup = row.querySelector(".mixed-installments-group");
+    const installmentsField = row.querySelector(".mixed-payment-installments");
+    const isCredit = normalizeText(methodField?.value || "") === "cartao de credito";
+
+    installmentsGroup?.classList.toggle("hidden", !isCredit);
+
+    if (!isCredit && installmentsField) {
+      installmentsField.value = "1";
+    }
+  });
 }
 
 function finalizeSale() {
@@ -1044,6 +1065,10 @@ function resetSaleForm() {
 
   document.querySelectorAll(".mixed-payment-value").forEach((input) => {
     input.value = "";
+  });
+
+  document.querySelectorAll(".mixed-payment-installments").forEach((select) => {
+    select.value = "1";
   });
 
   if (results) {
@@ -1568,7 +1593,7 @@ document.addEventListener("change", (event) => {
     updateSalePrice();
   }
 
-  if (event.target.matches("#salePaymentSelect, #saleInstallmentsSelect, .mixed-payment-method")) {
+  if (event.target.matches("#salePaymentSelect, #saleInstallmentsSelect, .mixed-payment-method, .mixed-payment-installments")) {
     updatePaymentSummary();
   }
 

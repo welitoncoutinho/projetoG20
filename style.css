@@ -463,12 +463,27 @@ th {
 .mixed-payment-group {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
   gap: 16px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--soft-surface);
+}
+
+.mixed-payment-row {
+  display: grid;
+  grid-template-columns: minmax(126px, 0.85fr) 108px 108px;
+  align-items: end;
+  gap: 12px;
+}
+
+.mixed-payment-method {
+  max-width: 150px;
+}
+
+.mixed-payment-value {
+  max-width: 108px;
 }
 
 .sale-layout {
@@ -627,6 +642,12 @@ th {
   transform: translateY(0);
 }
 
+@media (min-width: 1001px) and (max-width: 1340px) {
+  .sale-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1000px) {
   .cards,
   .form-grid,
@@ -658,6 +679,15 @@ th {
 
   .mixed-payment-group {
     grid-template-columns: 1fr;
+  }
+
+  .mixed-payment-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mixed-payment-method,
+  .mixed-payment-value {
+    max-width: none;
   }
 
   .product-search-option {
