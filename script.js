@@ -88,6 +88,7 @@ let sellerSortState = { column: null, direction: "asc" };
 let stockSortState = { key: null, direction: "asc" };
 let productsSortState = { column: null, direction: "asc" };
 let editingSaleRow = null;
+let editingProductRow = null;
 let toastTimer;
 
 function loginStore(event) {
@@ -266,6 +267,181 @@ function setText(id, value) {
   }
 }
 
+function saveProduct() {
+  const skuInput = document.getElementById("productSkuInput");
+  const nameInput = document.getElementById("productNameInput");
+  const typeSelect = document.getElementById("productTypeSelect");
+  const priceInput = document.getElementById("productPriceInput");
+  const quantityInput = document.getElementById("productInitialQuantityInput");
+  const minStockInput = document.getElementById("productMinStockInput");
+  const tableBody = document.getElementById("productsTableBody");
+  const sku = skuInput?.value.trim() || "";
+  const productName = nameInput?.value.trim() || "";
+  const quantityValue = quantityInput?.value.trim() || "";
+  const quantity = Math.max(0, Number(quantityValue === "" ? 0 : quantityValue));
+  const minStock = Math.max(0, Number(minStockInput?.value || 5));
+  const price = parseBrazilianMoney(priceInput?.value || "");
+
+  if (!sku) {
+    showMessage("Informe o SKU do produto.");
+    skuInput?.focus();
+    return;
+  }
+
+  if (!productName) {
+    showMessage("Informe o nome do produto.");
+    nameInput?.focus();
+    return;
+  }
+
+  if (isDuplicateTableValue(tableBody, sku)) {
+    showMessage("Esse SKU já está cadastrado.");
+    skuInput?.focus();
+    return;
+  }
+
+  const row = document.createElement("tr");
+  const status = getProductStatus(quantity, minStock);
+  row.dataset.minStock = String(minStock);
+
+  appendTextCell(row, sku);
+  appendTextCell(row, productName);
+  appendTextCell(row, typeSelect?.value || "-");
+  appendTextCell(row, formatCurrency(price));
+  appendTextCell(row, String(quantity));
+  appendBadgeCell(row, status);
+  appendProductActionCell(row);
+  tableBody?.appendChild(row);
+
+  [
+    "productSkuInput",
+    "productNameInput",
+    "productBrandInput",
+    "productSupplierInput",
+    "productPriceInput",
+    "productInitialQuantityInput",
+    "productMinStockInput"
+  ].forEach((id) => {
+    const input = document.getElementById(id);
+    if (input) input.value = "";
+  });
+
+  showMessage("Produto cadastrado em produtos cadastrados.");
+}
+
+function appendProductActionCell(row) {
+  const cell = document.createElement("td");
+  const button = document.createElement("button");
+  button.className = "btn secondary";
+  button.type = "button";
+  button.textContent = "Editar";
+  button.addEventListener("click", () => openProductEditModal(button));
+  cell.appendChild(button);
+  row.appendChild(cell);
+}
+
+function openProductEditModal(button) {
+  const row = button.closest("tr");
+
+  if (!row) {
+    return;
+  }
+
+  const cells = row.querySelectorAll("td");
+  editingProductRow = row;
+  populateProductEditTypeSelect(cells[2]?.textContent || "");
+
+  setInputValue("editProductSkuInput", cells[0]?.textContent || "");
+  setInputValue("editProductNameInput", cells[1]?.textContent || "");
+  setInputValue("editProductPriceInput", cells[3]?.textContent || "");
+  setInputValue("editProductStockInput", cells[4]?.textContent || "");
+  setInputValue("editProductMinStockInput", row.dataset.minStock || "5");
+
+  document.getElementById("productEditModal")?.classList.remove("hidden");
+}
+
+function closeProductEditModal() {
+  document.getElementById("productEditModal")?.classList.add("hidden");
+  editingProductRow = null;
+}
+
+function saveProductEdit() {
+  if (!editingProductRow) {
+    return;
+  }
+
+  const sku = document.getElementById("editProductSkuInput")?.value.trim() || "";
+  const name = document.getElementById("editProductNameInput")?.value.trim() || "";
+  const type = document.getElementById("editProductTypeSelect")?.value || "-";
+  const price = document.getElementById("editProductPriceInput")?.value.trim() || "";
+  const stock = Math.max(0, Number(document.getElementById("editProductStockInput")?.value || 0));
+  const minStock = Math.max(0, Number(document.getElementById("editProductMinStockInput")?.value || 0));
+  const status = getProductStatus(stock, minStock);
+
+  if (!sku) {
+    showMessage("Informe o SKU do produto.");
+    document.getElementById("editProductSkuInput")?.focus();
+    return;
+  }
+
+  if (!name) {
+    showMessage("Informe o nome do produto.");
+    document.getElementById("editProductNameInput")?.focus();
+    return;
+  }
+
+  const duplicateSku = Array.from(document.querySelectorAll("#productsTableBody tr")).some((row) => {
+    return row !== editingProductRow && normalizeText(row.children[0]?.textContent || "") === normalizeText(sku);
+  });
+
+  if (duplicateSku) {
+    showMessage("Esse SKU já está cadastrado.");
+    document.getElementById("editProductSkuInput")?.focus();
+    return;
+  }
+
+  const cells = editingProductRow.querySelectorAll("td");
+  cells[0].textContent = sku;
+  cells[1].textContent = name;
+  cells[2].textContent = type;
+  cells[3].textContent = price ? formatCurrency(parseBrazilianMoney(price)) : "R$ 0,00";
+  cells[4].textContent = String(stock);
+  cells[5].replaceChildren(createStatusBadge(status));
+  editingProductRow.dataset.minStock = String(minStock);
+
+  applyProductFilters();
+  closeProductEditModal();
+  showMessage("Produto atualizado com sucesso.");
+}
+
+function populateProductEditTypeSelect(currentType) {
+  const editSelect = document.getElementById("editProductTypeSelect");
+  const productTypeSelect = document.getElementById("productTypeSelect");
+
+  if (!editSelect) {
+    return;
+  }
+
+  editSelect.innerHTML = "";
+  Array.from(productTypeSelect?.options || []).forEach((option) => {
+    addSelectOption(editSelect, option.value || option.textContent, option.textContent);
+  });
+
+  if (currentType && !Array.from(editSelect.options).some((option) => option.value === currentType)) {
+    addSelectOption(editSelect, currentType, currentType);
+  }
+
+  editSelect.value = currentType;
+}
+
+function getProductStatus(stock, minStock) {
+  if (stock === 0) {
+    return "Inativo";
+  }
+
+  return stock <= minStock ? "Estoque baixo" : "Ativo";
+}
+
 function saveProductType() {
   const typeInput = document.getElementById("newProductTypeInput");
   const statusInput = document.getElementById("newProductTypeStatus");
@@ -359,17 +535,25 @@ function appendTextCell(row, value) {
 
 function appendBadgeCell(row, value) {
   const cell = document.createElement("td");
+  cell.appendChild(createStatusBadge(value));
+  row.appendChild(cell);
+}
+
+function createStatusBadge(value) {
   const badge = document.createElement("span");
   badge.className = `badge ${getStatusBadgeClass(value)}`;
   badge.textContent = value;
-  cell.appendChild(badge);
-  row.appendChild(cell);
+  return badge;
 }
 
 function getStatusBadgeClass(value) {
   const normalizedValue = normalizeText(value);
 
   if (normalizedValue.includes("inativo") || normalizedValue.includes("inativa")) {
+    return "danger";
+  }
+
+  if (normalizedValue.includes("estoque baixo")) {
     return "low";
   }
 

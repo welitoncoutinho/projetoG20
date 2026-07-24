@@ -356,6 +356,11 @@ th {
   color: #a4490d;
 }
 
+.badge.danger {
+  background: #fde8e8;
+  color: var(--red);
+}
+
 .badge.info {
   background: var(--blue-soft);
   color: var(--blue);
